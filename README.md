@@ -3,8 +3,8 @@
 ## Project Overview
 This project controls an ABB IRB120 6-axis robot to automatically process workpieces from a 4x4 grid. The robot detects whether a block is present, moves it to a color sensor for quality inspection (Approved: Blue/Green, Rejected: Yellow), and returns the block to its original position. At the end of the batch, it outputs the operational statistics.
 
-## 👥 Team Roles & Responsibilities
-*   **Maks:** Core Architecture, Git Repository Master, RobotStudio Station Setup, and Point Teaching.
+## Team Roles & Responsibilities
+*   **Maks:** Core Architecture, Git Repository, RobotStudio Station Setup, and Point Teaching.
 *   **Simona:** Grid Math, Snake-Loop Navigation, and Flowchart Logic.
 *   **Ivan:** Digital I/O Signals, PLC/Robot Handshaking, and Gripper Actuation.
 *   **Bea:** Error Handling (Missing Parts, Timeouts) and Color Sensor Logic.
@@ -17,8 +17,8 @@ This project controls an ABB IRB120 6-axis robot to automatically process workpi
 
 ## How to Contribute (VS Code ↔ RobotStudio Workflow)
 1. Pull the latest code from this repository.
-2. Edit `MainModule.mod` in VS Code.
-3. In RobotStudio, right-click `T_ROB1` > `Load Module...` and select the updated `.mod` file.
-4. Click **Apply** in the RAPID tab.
-5. Test in the Simulator.
-6. Commit and Push your changes.
+2. Edit `g1-code.mod` in VS Code.
+3. In RobotStudio > RAPID, right-click `T_ROB1` > `Load Module...` and select the updated `.mod` file.
+5. Right-click main (`MainModule/main`) and select `Set Program Pointer ...`
+6. Go to Simulation and click Play Button
+7. For contributions make a dedicated bracnh and use commits using the https://www.conventionalcommits.org/en/v1.0.0/
