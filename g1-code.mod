@@ -64,7 +64,17 @@ MODULE MainModule
     ENDPROC
     
     PROC MeasureColor()
-        ! Logic to move to the sensor and check color goes here
+        ! Approach sensor safely
+        MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
+    
+        ! --- BEA'S SENSOR LOGIC GOES HERE ---
+        ! TODO: Wait for sensor reading
+        ! TODO: Check if Blue/Green (Correct) or Yellow (Wrong)
+        ! TODO: Update statistics counters
+    
+        ! Leave sensor safely
+        MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
 
     PROC ShowResults()
