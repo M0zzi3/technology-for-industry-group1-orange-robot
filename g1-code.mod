@@ -1,9 +1,10 @@
 MODULE MainModule
     ! --- TARGETS ---
-    VAR robtarget pGrid_Ref; 
-    VAR robtarget pSensor_Measure;
-    VAR robtarget pHome;
-
+    !! TODO: Measure the real points
+    CONST robtarget pGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pSensor_Measure := [[359.1269,236.1245,188.4613],[8.42937E-08,-5.596081E-08,-0.9999999,3.015708E-08],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pHome := [[-166.3462,21.82911,455.9365],[0.5664985,0.1725782,-0.7928951,-0.1435742],[-2,-1,2,4],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    
     ! --- GRID CONSTANTS (Simona's offset math) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
