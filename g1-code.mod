@@ -18,21 +18,27 @@ MODULE MainModule
     VAR num count_empty := 0;
     
     
-    ! --- MAIN PROGRAM ---
+   ! --- MAIN PROGRAM ---
     PROC main()
         TPWrite "Place workpieces and press start switch";
+        ! Step 1: Wait for operator (Simona/Ivan will add WaitDI here later)
         
-        ! Step 1: Wait for operator (Simona/Ivan will add logic here)
+        TPWrite "Moving to safe Home position...";
+        ! 1. Always start the cycle from Home
+        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ! Step 2: Test Movement to the first point
-        TPWrite "Moving to start point...";
-        MoveJ Offs(pGrid_Ref, 0, 0, 50), v100, fine, t_grijper1\WObj:=wobj0;
-        MoveL pGrid_Ref, v50, fine, t_grijper1\WObj:=wobj0;
-        MoveL Offs(pGrid_Ref, 0, 0, 50), v50, fine, t_grijper1\WObj:=wobj0;
+        TPWrite "Processing the first grid block...";
+        ! 2. Feed our first grid point into the procedure.
+        ! (This will automatically approach, pretend to grip, 
+        ! fly to the sensor, and return the block!)
+        ProcessBlock(pGrid_Ref);
         
-        ! Step 3: Scan the Grid (The snake-loop)
+        TPWrite "Cycle complete. Returning Home...";
+        ! 3. Park the robot safely when the job is done
+        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        TPWrite "Test finished";
+        ! 4. Output the final statistics
+        ShowResults;
     ENDPROC
 
     ! --- SUB-PROCEDURES FOR THE TEAM ---
