@@ -29,7 +29,7 @@ MODULE MainModule
         MoveL start_point, v50, fine, t_grijper1\WObj:=wobj0;
         MoveL Offs(start_point, 0, 0, 50), v50, fine, t_grijper1\WObj:=wobj0;
         
-        ! Step 3: Scan the Grid (The snake-loop goes here later)
+        ! Step 3: Scan the Grid (The snake-loop)
         
         TPWrite "Test finished";
     ENDPROC
@@ -38,8 +38,8 @@ MODULE MainModule
     
     PROC ProcessBlock(robtarget target_pos)
         VAR robtarget approach_pos;
-        approach_pos := Offs(target_pos, 0, 0, 50); ! 50mm safe height
-    
+        approach_pos := Offs(target_pos, 0, 0, 50); ! 50mm for safe height
+        
         ! Approach and descend
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
