@@ -21,4 +21,4 @@ This project controls an ABB IRB120 6-axis robot to automatically process workpi
 3. In RobotStudio > RAPID, right-click `T_ROB1` > `Load Module...` and select the updated `.mod` file.
 5. Right-click main (`MainModule/main`) and select `Set Program Pointer ...`
 6. Go to Simulation and click Play Button
-7. For contributions make a dedicated bracnh and use commits using the https://www.conventionalcommits.org/en/v1.0.0/
+7. For contributions make a dedicated branch and use commits using the https://www.conventionalcommits.org/en/v1.0.0/
