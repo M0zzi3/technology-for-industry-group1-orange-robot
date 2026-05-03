@@ -36,8 +36,31 @@ MODULE MainModule
 
     ! --- SUB-PROCEDURES FOR THE TEAM ---
     
-    PROC ProcessPosition()
-        ! Bea and Ivan will add the Gripper and Empty/Full logic here
+    PROC ProcessBlock(robtarget target_pos)
+        VAR robtarget approach_pos;
+        approach_pos := Offs(target_pos, 0, 0, 50); ! 50mm safe height
+    
+        ! Approach and descend
+        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
+    
+        ! --- IVAN & BEA'S GRIP LOGIC GOES HERE ---
+        ! TODO: SetDO gripper close
+        ! TODO: WaitTime 1s
+        ! TODO: Check DIGripperClose (If empty -> handle error, return early)
+    
+        ! If we grabbed a block, go measure it
+        MeasureColor();
+    
+        ! Return block to grid
+        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
+    
+        ! --- IVAN'S RELEASE LOGIC GOES HERE ---
+        ! TODO: SetDO gripper open
+    
+        ! Retreat safely
+        MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
     
     PROC MeasureColor()
