@@ -25,9 +25,9 @@ MODULE MainModule
         
         ! Step 2: Test Movement to the first point
         TPWrite "Moving to start point...";
-        MoveJ Offs(start_point, 0, 0, 50), v100, fine, t_grijper1\WObj:=wobj0;
-        MoveL start_point, v50, fine, t_grijper1\WObj:=wobj0;
-        MoveL Offs(start_point, 0, 0, 50), v50, fine, t_grijper1\WObj:=wobj0;
+        MoveJ Offs(pGrid_Ref, 0, 0, 50), v100, fine, t_grijper1\WObj:=wobj0;
+        MoveL pGrid_Ref, v50, fine, t_grijper1\WObj:=wobj0;
+        MoveL Offs(pGrid_Ref, 0, 0, 50), v50, fine, t_grijper1\WObj:=wobj0;
         
         ! Step 3: Scan the Grid (The snake-loop)
         
@@ -50,7 +50,7 @@ MODULE MainModule
         ! TODO: Check DIGripperClose (If empty -> handle error, return early)
     
         ! If we grabbed a block, go measure it
-        MeasureColor();
+        MeasureColor;
     
         ! Return block to grid
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
