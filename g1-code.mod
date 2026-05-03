@@ -78,7 +78,8 @@ MODULE MainModule
     ENDPROC
 
     PROC ShowResults()
-        ! Logic to calculate and display final stats goes here
+        TPWrite "--- BATCH FINISHED ---";
+        ! TODO: Add more TPWrite lines to show count_correct, count_wrong, etc.
     ENDPROC
 
 ENDMODULE
