@@ -114,8 +114,12 @@ MODULE MainModule
     ENDPROC
 
     PROC ShowResults()
-        TPWrite "--- BATCH FINISHED ---";
-        ! TODO: Add more TPWrite lines to show count_correct, count_wrong, etc.
+        TPWrite "--- BATCH QUALITY REPORT ---";
+        TPWrite "Amount of objects: " \Num:=count_total;
+        TPWrite "Amount of correct colors: " \Num:=count_correct;
+        TPWrite "Amount of incorrect colors: " \Num:=count_wrong;
+        TPWrite "Amount of missing objects: " \Num:=count_empty;
+        TPWrite "----------------------------";
     ENDPROC
 
 ENDMODULE
