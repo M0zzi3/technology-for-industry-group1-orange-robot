@@ -1,60 +1,75 @@
 MODULE MainModule
     ! --- TARGETS ---
-    !! TODO: Measure the real points
     CONST robtarget pGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pSensor_Measure := [[359.1269,236.1245,188.4613],[8.42937E-08,-5.596081E-08,-0.9999999,3.015708E-08],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- GRID CONSTANTS (Simona's offset math) ---
+    ! --- GRID CONSTANTS ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 40; ! Change this to your actual mm spacing
-    CONST num OFFSET_Y := 40; ! Change this to your actual mm spacing
+    CONST num OFFSET_X := 40; 
+    CONST num OFFSET_Y := 40; 
 
-    ! --- STATISTICS (For final reporting) ---
+    ! --- STATISTICS ---
     VAR num count_total := 0;
     VAR num count_correct := 0;
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
     
-    
    ! --- MAIN PROGRAM ---
     PROC main()
+        InitProgram; ! Maks's Feature: Wipes screen and zeros stats
+
         TPWrite "Place workpieces and press start switch";
-        ! Step 1: Wait for operator (Simona/Ivan will add WaitDI here later)
+        
+        ! ==========================================
+        ! @IVAN - TASK 1: Wait for Operator
+        ! INSTRUCTIONS: Use 'WaitDI' to wait for the Start_Cycle signal here.
+        ! ==========================================
         
         TPWrite "Moving to safe Home position...";
-        ! 1. Always start the cycle from Home
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        TPWrite "Processing the first grid block...";
-        ! 2. Feed our first grid point into the procedure.
-        ! (This will automatically approach, pretend to grip, 
-        ! fly to the sensor, and return the block!)
-        ProcessBlock(pGrid_Ref);
+        ! ==========================================
+        ! @SIMONA - TASK 1: The Snake Loop
+        ! INSTRUCTIONS: Delete the single ProcessBlock line below. 
+        ! Create nested FOR loops (row and col). 
+        ! Calculate the X and Y offsets.
+        ! Use 'Offs(pGrid_Ref, x, y, 0)' to find the target.
+        ! Call ProcessBlock(your_calculated_target);
+        ! ==========================================
+        
+        TPWrite "Processing the grid...";
+        ProcessBlock(pGrid_Ref); ! <-- SIMONA: REPLACE THIS WITH YOUR LOOPS
         
         TPWrite "Cycle complete. Returning Home...";
-        ! 3. Park the robot safely when the job is done
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ! 4. Output the final statistics
-        ShowResults;
+        ShowResults; ! Maks's Feature: Prints the final stats
     ENDPROC
 
     ! --- SUB-PROCEDURES FOR THE TEAM ---
     
     PROC ProcessBlock(robtarget target_pos)
         VAR robtarget approach_pos;
-        approach_pos := Offs(target_pos, 0, 0, 50); ! 50mm for safe height
+        approach_pos := Offs(target_pos, 0, 0, 50); 
         
         ! Approach and descend
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! --- IVAN & BEA'S GRIP LOGIC GOES HERE ---
-        ! TODO: SetDO gripper close
-        ! TODO: WaitTime 1s
-        ! TODO: Check DIGripperClose (If empty -> handle error, return early)
+        ! ==========================================
+        ! @IVAN - TASK 2: Close the Gripper
+        ! INSTRUCTIONS: Use 'SetDO' to turn on DO_Gripper.
+        ! ==========================================
+
+        ! ==========================================
+        ! @BEA - TASK 1: Empty Grid Check (Error Handling)
+        ! INSTRUCTIONS: 
+        ! 1. Use 'WaitTime 1;'
+        ! 2. Check if DIGripperClose is 0.
+        ! 3. IF empty: Increment 'count_empty', open the gripper, move back to 'approach_pos', and type 'RETURN;' to exit early.
+        ! ==========================================
     
         ! If we grabbed a block, go measure it
         MeasureColor;
@@ -63,8 +78,10 @@ MODULE MainModule
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! --- IVAN'S RELEASE LOGIC GOES HERE ---
-        ! TODO: SetDO gripper open
+        ! ==========================================
+        ! @IVAN - TASK 3: Open the Gripper
+        ! INSTRUCTIONS: Use 'SetDO' to turn off DO_Gripper.
+        ! ==========================================
     
         ! Retreat safely
         MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
@@ -75,10 +92,14 @@ MODULE MainModule
         MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
         MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! --- BEA'S SENSOR LOGIC GOES HERE ---
-        ! TODO: Wait for sensor reading
-        ! TODO: Check if Blue/Green (Correct) or Yellow (Wrong)
-        ! TODO: Update statistics counters
+        ! ==========================================
+        ! @BEA - TASK 2: Sensor Logic
+        ! INSTRUCTIONS: 
+        ! 1. Read the color sensor signal here.
+        ! 2. IF Blue/Green: Increment 'count_correct'
+        ! 3. IF Yellow: Increment 'count_wrong'
+        ! 4. Always increment 'count_total'
+        ! ==========================================
     
         ! Leave sensor safely
         MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
