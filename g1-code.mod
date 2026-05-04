@@ -40,13 +40,15 @@ MODULE MainModule
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
 
 
-        TPWrite "Place workpieces and press start switch";
-    
-        
-        ! ==========================================
-        ! @IVAN - TASK 1: Wait for Operator
-        ! INSTRUCTIONS: Use 'WaitDI' to wait for the Start_Cycle signal here.
-        ! ==========================================
+        VAR num answer;
+        TPWrite "Place the workpieces on the grid.";
+        TPReadFK answer, "Press OK when the workpieces are ready.", "OK", "", "", "", "";
+        IF answer = 1 THEN
+            TPWrite "Starting cycle...";
+        ELSE
+            TPWrite "Cycle not started.";
+            RETURN;
+        ENDIF
 
 
         ! ==========================================
