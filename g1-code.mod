@@ -18,7 +18,7 @@ MODULE MainModule
     
    ! --- MAIN PROGRAM ---
     PROC main()
-        InitProgram; ! Maks's Feature: Wipes screen and zeros stats
+        InitProgram; !  Wipes screen and zeros stats
 
         TPWrite "Place workpieces and press start switch";
         
@@ -45,11 +45,19 @@ MODULE MainModule
         TPWrite "Cycle complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ShowResults; ! Maks's Feature: Prints the final stats
+        ShowResults; ! Prints the final stats
     ENDPROC
 
-    ! --- SUB-PROCEDURES FOR THE TEAM ---
+    ! --- SUB-PROCEDURES ---
     
+    PROC InitProgram()
+        TPErase;
+        count_total := 0;
+        count_correct := 0;
+        count_wrong := 0;
+        count_empty := 0;
+    ENDPROC
+
     PROC ProcessBlock(robtarget target_pos)
         VAR robtarget approach_pos;
         approach_pos := Offs(target_pos, 0, 0, 50); 
@@ -106,8 +114,12 @@ MODULE MainModule
     ENDPROC
 
     PROC ShowResults()
-        TPWrite "--- BATCH FINISHED ---";
-        ! TODO: Add more TPWrite lines to show count_correct, count_wrong, etc.
+        TPWrite "--- BATCH QUALITY REPORT ---";
+        TPWrite "Amount of objects: " \Num:=count_total;
+        TPWrite "Amount of correct colors: " \Num:=count_correct;
+        TPWrite "Amount of incorrect colors: " \Num:=count_wrong;
+        TPWrite "Amount of missing objects: " \Num:=count_empty;
+        TPWrite "----------------------------";
     ENDPROC
 
 ENDMODULE
