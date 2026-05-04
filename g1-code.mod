@@ -17,6 +17,13 @@ MODULE MainModule
     VAR num count_correct := 0;
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
+
+     ! --- ERROR FLAGS ---
+    VAR bool Error_NoPart := FALSE;
+    VAR bool Error_GripperFault := FALSE;
+    VAR bool System_ResetRequired := FALSE;
+    
+    
     
    ! --- MAIN PROGRAM ---
     PROC main()
@@ -75,15 +82,43 @@ MODULE MainModule
         ! @IVAN - TASK 2: Close the Gripper
         ! ==========================================
 
-        ! ==========================================
-        ! @BEA - TASK 1: Empty Grid Check (Error Handling)
-        ! INSTRUCTIONS: 
-        ! 1. WaitTime 1;
-        ! 2. Check DIGripperClose.
-        ! 3. IF empty: Increment 'count_empty', open gripper, move back to 'approach_pick', and type 'RETURN;'
-        ! ==========================================
-    
-        ! If we grabbed a block, measure it
+      ! --- GRIPPER AND EMPTY POSITION ERROR HANDLING (bea) ---
+
+                    ! --- EMPTY POSITION / GRIP CHECK LOGIC ---
+                    ! The gripper is closed before checking the feedback signal.
+                    ! After a short delay, DI_GripperClose is checked to determine whether a block was actually gripped.
+                    ! If DI_GripperClose = 0, the position is considered empty.
+                    ! Empty positions are not fatal errors: the robot stores the result, opens the gripper,
+                    ! returns to the safe approach position, and continues with the next grid position.
+                    ! RETURN is used to skip the color measurement because there is no block to inspect.
+
+        SetDO DO_Gripper, 1;
+        WaitTime 1;
+
+        IF DI_GripperClose = 0 THEN
+            Error_NoPart := TRUE;
+            count_empty := count_empty + 1;
+
+            TPWrite "Empty position detected";
+            
+            ! Open the gripper for safety before leaving the position.
+            SetDO DO_Gripper, 0;
+            WaitTime 0.5;
+
+            MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
+
+            ! Stop processing this position.
+            ! This prevents the robot from going to the color sensor without a block.
+            RETURN;
+        ENDIF
+
+        ! A block was detected, so the program continues with the normal process.
+        ! The object counter is updated and the block will be sent to the color sensor.
+        Error_NoPart := FALSE;
+        count_total := count_total + 1;
+        TPWrite "Object detected";
+        
+        ! If we grabbed a block, go measure it
         MeasureColor;
     
         ! Take block to the LEFT platform
@@ -94,10 +129,14 @@ MODULE MainModule
         ! @IVAN - TASK 3: Open the Gripper
         ! ==========================================
     
+        ! Open gripper after placing the block back
+        SetDO DO_Gripper, 0;
+        WaitTime 0.5;
+
         ! Retreat safely
         MoveL approach_drop, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
-    
+
     PROC MeasureColor()
         ! Approach sensor safely
         MoveJ Offs(P_Color_ict, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
