@@ -29,7 +29,7 @@ MODULE MainModule
     VAR bool Error_NoPart := FALSE;
     VAR bool Error_GripperFault := FALSE;
     VAR bool System_ResetRequired := FALSE;
-    
+    VAR num answer;  
     
     
    ! --- MAIN PROGRAM ---
@@ -40,7 +40,6 @@ MODULE MainModule
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
 
 
-        VAR num answer;
         TPWrite "Place the workpieces on the grid.";
         TPReadFK answer, "Press OK when the workpieces are ready.", "OK", "", "", "", "";
         IF answer = 1 THEN
