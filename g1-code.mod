@@ -9,8 +9,8 @@ MODULE MainModule
     ! --- GRID CONSTANTS ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 40; 
-    CONST num OFFSET_Y := 40; 
+    CONST num OFFSET_X := 58; 
+    CONST num OFFSET_Y := 58; 
 
     ! --- STATISTICS ---
     VAR num count_total := 0;
@@ -27,7 +27,12 @@ MODULE MainModule
     
    ! --- MAIN PROGRAM ---
     PROC main()
-        InitProgram;
+        VAR robtarget current_pos;  ! Current calculated grid position
+        VAR num row;                ! Current row number
+        VAR num col;                ! Current column number
+        VAR num x_offset;           ! Calculated X offset
+        VAR num y_offset;           ! Calculated Y offset
+        InitProgram; ! Maks's Feature: Wipes screen and zeros stats
 
         TPWrite "Place workpieces and press start switch";
         
@@ -49,7 +54,23 @@ MODULE MainModule
         ! ==========================================
         
         TPWrite "Processing the grid...";
-        ProcessBlock pPickGrid_Ref, pDestGrid_Ref; ! <-- SIMONA: REPLACE THIS WITH YOUR LOOPS
+        FOR row FROM 0 TO GRID_ROWS - 1 DO              ! Go through all rows
+            FOR col FROM 0 TO GRID_COLS - 1 DO          ! Go through all columns
+                y_offset := row * OFFSET_Y;             ! Calculate row distance from first point
+        
+                IF row MOD 2 = 0 THEN                               ! Even rows go left to right
+                    x_offset := col * OFFSET_X;                     ! Normal column direction
+                ELSE                                                ! Odd rows go right to left
+                    x_offset := (GRID_COLS - 1 - col) * OFFSET_X;   ! Reverse direction for snake movement
+                ENDIF
+        
+                current_pos := Offs(pGrid_Ref, x_offset, y_offset, 0); ! Create current grid point from reference point
+        
+                ProcessBlock(current_pos);              ! Go down, pick/check/sensor/return through ProcessBlock
+        
+            ENDFOR                                      ! End column loop
+        
+        ENDFOR 
         
         TPWrite "Cycle complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
