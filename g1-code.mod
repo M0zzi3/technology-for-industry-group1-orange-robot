@@ -15,21 +15,34 @@ MODULE MainModule
     VAR num count_correct := 0;
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
+
+
+    ! --- PROCESS STATE VARIABLES ---
+    VAR bool operatorReady:= FALSE;
+    VAR bool blockPicked := FALSE;
+    VAR bool noBlockPicked := FALSE;
+    VAR bool measurementValid := FALSE;
+    VAR bool colourOK := FALSE;
+    VAR bool colourNOK := FALSE;
+    VAR bool blockReturned := FALSE;
     
    ! --- MAIN PROGRAM ---
     PROC main()
         InitProgram; !  Wipes screen and zeros stats
+        
+        TPWrite "Moving to safe Home position...";
+        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
+
 
         TPWrite "Place workpieces and press start switch";
+    
         
         ! ==========================================
         ! @IVAN - TASK 1: Wait for Operator
         ! INSTRUCTIONS: Use 'WaitDI' to wait for the Start_Cycle signal here.
         ! ==========================================
-        
-        TPWrite "Moving to safe Home position...";
-        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-        
+
+
         ! ==========================================
         ! @SIMONA - TASK 1: The Snake Loop
         ! INSTRUCTIONS: Delete the single ProcessBlock line below. 
