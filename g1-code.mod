@@ -3,7 +3,7 @@ MODULE MainModule
     ! S1: Pickup Grid Reference
     CONST robtarget pGrid_Pick_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! S4: Destination Grid Reference (Second Platform - from feat/second-platform)
+    ! S4: Destination Grid Reference
     CONST robtarget pGrid_Dest_Ref := [[-128.7875,-530.1699,303.2513],[0.01374067,0.5698823,0.8214142,-0.01799957],[-2,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
     
     ! S2: Color Sensor Station
@@ -12,7 +12,7 @@ MODULE MainModule
     ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- GRID CONSTANTS (Simona's 58mm offsets) ---
+    ! --- GRID CONSTANTS (58mm offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
     CONST num OFFSET_X := 58; 
@@ -24,7 +24,7 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
 
-    ! --- PROCESS STATE FLAGS (Ivan's Logic) ---
+    ! --- PROCESS STATE FLAGS ---
     VAR bool operatorReady := FALSE;
     VAR bool blockPicked := FALSE;
     VAR bool measurementValid := FALSE;
