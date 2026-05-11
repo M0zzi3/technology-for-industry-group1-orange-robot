@@ -21,7 +21,7 @@ This project controls an **ABB IRB120 6-axis robot** to automatically process wo
 | :--------- | :------------------ | :-------------------------------------------------------------------------------------- |
 | **Ivan**   | **PLC Handshake**   | Map and implement physical `SetDO` signals for `Robot_Busy` and `Robot_Done`.           |
 | **Bea**    | **Color Mapping**   | Update `MeasureColor` with real `DI` signal checks for Blue, Green, and Yellow.         |
-| **Simona** | **Grid Validation** | Run a full 4x4 simulation to ensure the 58mm offset aligns perfectly with the 3D model. |
+| **Simona** | **Grid Validation** | Run a full 4x4 simulation to ensure the 40mm offset aligns perfectly with the 3D model. |
 | **Maks**   | **Point Teaching**  | Verify and fine-tune the absolute coordinates of the `pGrid_Dest_Ref` station.          |
 
 ## Hardware Configuration
