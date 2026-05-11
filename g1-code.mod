@@ -115,53 +115,70 @@ MODULE MainModule
         System_ResetRequired := FALSE;
     ENDPROC
 
-    PROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
+    PPROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
         VAR robtarget approach_pick;
         VAR robtarget approach_dest;
+        VAR robtarget actual_grip_pos;
+        VAR robtarget actual_approach_pos;
+        VAR num measured_dist;
         
+        ! The laser approach point
         approach_pick := Offs(pick_pos, 0, 0, 50); 
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
-        ! 1. PICKUP PHASE
+        ! LASER SENSOR PHASE
+        ! Move above the piece so the laser points directly at it
         MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL pick_pos, v50, fine, t_grijper1\WObj:=wobj0;
+        
+        ! Wait a tiny moment for the analog signal to stabilize
+        WaitTime 0.2; 
+        
+        ! Read the live data from the Sick sensor
+        measured_dist := AI_SensorSick;
+        
+        ! Check if the spot is empty
+        IF measured_dist <= -50 THEN
+            count_empty := count_empty + 1;
+            Error_NoPart := TRUE;
+            TPWrite "Laser detected empty spot (Val: " \Num:=measured_dist;
+            TPWrite "). Moving to next...";
+            RETURN; ! Exit the procedure entirely and skip to the next loop
+        ENDIF
+        
+        ! DYNAMIC PICKUP PHASE
+        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, measured_dist);
+        actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
+        
+        ! Shift horizontally to align the gripper, then descend dynamically
+        MoveL actual_approach_pos, v100, fine, t_grijper1\WObj:=wobj0;
+        MoveL actual_grip_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
         SetDO DO_Gripper, 1;
-        
-! --- ERROR 1 & 2: Empty position / Gripper fault check (Bea) ---
         WaitTime 1;
+        
+        ! --- ERROR 2: Gripper fault check ---
+        ! Since the laser confirmed a block was there, if the gripper misses it now, 
+        ! it is a mechanical error, not a standard empty spot.
         IF DI_GripperClose = 0 THEN
-            WaitTime 0.5;
-            IF DI_GripperClose = 0 THEN
-                count_empty := count_empty + 1;
-                Error_NoPart := TRUE;
-                TPWrite "S1 Position Empty. Moving to next...";
-                SetDO DO_Gripper, 0;
-                WaitTime 0.5;
-                MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
-                RETURN;
-            ELSE
-                Error_GripperFault := TRUE;
-                System_ResetRequired := TRUE;
-                TPWrite "ERROR 2: Gripper signal unstable. Stopping cycle.";
-                SetDO DO_Gripper, 0;
-                MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-                TPWrite "Check gripper and block position. Reset required.";
-                STOP;
-            ENDIF
+            Error_GripperFault := TRUE;
+            System_ResetRequired := TRUE;
+            TPWrite "ERROR 2: Laser saw block, but gripper missed!";
+            SetDO DO_Gripper, 0;
+            MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
+            TPWrite "Check gripper and block position. Reset required.";
+            STOP;
         ENDIF
-
 
         ! Block successfully gripped
         blockPicked := TRUE;
         Error_NoPart := FALSE;
         count_total := count_total + 1;
         
-        ! 2. MEASUREMENT PHASE
-        MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
+        ! 3. MEASUREMENT PHASE
+        MoveL actual_approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
         MeasureColor;
     
-        ! 3. PLACEMENT PHASE (Second Platform)
+        ! 4. PLACEMENT PHASE (Second Platform)
         MoveJ approach_dest, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL dest_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
@@ -171,7 +188,6 @@ MODULE MainModule
     
         MoveL approach_dest, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
-    
     PROC MeasureColor()
     ! Move to sensor
     MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
