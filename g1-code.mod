@@ -1,10 +1,10 @@
 MODULE MainModule
     ! --- ROBOT TARGETSsss ---
     ! S1: Pickup Grid Reference
-    CONST robtarget pGrid_Pick_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference
-    CONST robtarget pGrid_Dest_Ref := [[-128.7875,-530.1699,303.2513],[0.01374067,0.5698823,0.8214142,-0.01799957],[-2,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
+    CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52], [0.000146671,6.84201E-05, -1, -9.78187E-05]. [-1, -1, -1,0], [9+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S2: Color Sensor Station
     CONST robtarget pSensor_Measure := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
@@ -12,12 +12,11 @@ MODULE MainModule
     ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- GRID CONSTANTS (40mm offsets) ---
+    ! --- GRID CONSTANTS (45mm offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    ! 58mm was outside of arm reach
-    CONST num OFFSET_X := 40; 
-    CONST num OFFSET_Y := 40; 
+    CONST num OFFSET_X := 45; 
+    CONST num OFFSET_Y := 45; 
 
     ! --- STATISTICS ---
     VAR num count_total := 0;
