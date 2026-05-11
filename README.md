@@ -1,24 +1,27 @@
-# ICT Technology for Industry - Robot Sorting Project
+# Project Overview: Robot Sorting (Orange Robot)
 
-## Project Overview
-This project controls an ABB IRB120 6-axis robot to automatically process workpieces from a 4x4 grid. The robot detects whether a block is present, moves it to a color sensor for quality inspection (Approved: Blue/Green, Rejected: Yellow), and returns the block to its original position. At the end of the batch, it outputs the operational statistics.
+This project controls an **ABB IRB120 6-axis robot** to automatically process workpieces from a 4x4 grid (S1), inspect them for quality, and transfer them to a destination grid (S4) on a second platform.
 
-## Team Roles & Responsibilities
-*   **Maks:** Core Architecture, Git Repository, RobotStudio Station Setup, and Point Teaching.
-*   **Simona:** Grid Math, Snake-Loop Navigation, and Flowchart Logic.
-*   **Ivan:** Digital I/O Signals, PLC/Robot Handshaking, and Gripper Actuation.
-*   **Bea:** Error Handling (Missing Parts, Timeouts) and Color Sensor Logic.
+## Features & Implementation
+- **Snake-Wise Transfer:** The robot navigates the 4x4 pickup grid in a snake pattern to minimize travel distance. For every valid part found, it performs a transfer to the corresponding slot in the destination grid.
+- **Grid Calibration:** Uses **58mm offsets** (X and Y) as specified by team measurements (Simona).
+- **Interactive Start:** Uses FlexPendant `TPReadFK` prompts to synchronize with the operator (Ivan).
+- **Intelligent Error Handling:** Detects empty slots via gripper feedback (`DI_GripperClose`) and skips measurement/transfer for that slot (Bea).
+- **State Tracking:** Uses internal boolean flags (`operatorReady`, `blockPicked`, `Error_NoPart`) to track the process flow.
 
-## Code Structure
-*   `PROC main()`: Handles the initialization, waits for the operator, and executes the 4x4 grid scan.
-*   `PROC ProcessBlock(robtarget target_pos)`: Manages the safe approach, descent, gripping, and return of a single block.
-*   `PROC MeasureColor()`: Transports a gripped block to the sensor station and updates quality statistics.
-*   `PROC ShowResults()`: Outputs the final batch data (correct/wrong/empty counts) to the FlexPendant.
+## Hardware Configuration
+- **S1 (Pickup):** `pGrid_Pick_Ref` (Reference Point)
+- **S4 (Destination):** `pGrid_Dest_Ref` (Reference Point)
+- **S2 (Sensor):** `pSensor_Measure`
+- **Signals:** `DO_Gripper`, `DI_GripperClose`
 
-## How to Contribute (VS Code ↔ RobotStudio Workflow)
-1. Pull the latest code from this repository.
-2. Edit `g1-code.mod` in VS Code.
-3. In RobotStudio > RAPID, right-click `T_ROB1` > `Load Module...` and select the updated `.mod` file.
-5. Right-click main (`MainModule/main`) and select `Set Program Pointer ...`
-6. Go to Simulation and click Play Button
-7. For contributions make a dedicated branch and use commits using the https://www.conventionalcommits.org/en/v1.0.0/
+## Remaining Tasks (TODOs)
+- [ ] **PLC Handshaking:** Implement physical `SetDO` signals for `Robot_Busy` and `Robot_Done`.
+- [ ] **Color Sensor Mapping:** Replace the `MeasureColor` placeholder logic with real Digital Input checks for Blue, Green, and Yellow.
+- [ ] **Final Point Teaching:** Verify the physical coordinates of `pGrid_Dest_Ref` in RobotStudio.
+
+## Development Workflow
+1. Edit `g1-code.mod` in VS Code.
+2. Load module into RobotStudio (`T_ROB1`).
+3. Set PP to `main` and run simulation.
+4. Verify grid alignment and I/O feedback.

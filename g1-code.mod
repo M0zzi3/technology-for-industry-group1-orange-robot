@@ -1,14 +1,22 @@
 MODULE MainModule
-    ! --- TARGETS ---
-    CONST robtarget pGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget P_Color_ict := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    ! --- ROBOT TARGETS ---
+    ! S1: Pickup Grid Reference
+    CONST robtarget pGrid_Pick_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    
+    ! S4: Destination Grid Reference (Second Platform - from feat/second-platform)
+    CONST robtarget pGrid_Dest_Ref := [[-128.7875,-530.1699,303.2513],[0.01374067,0.5698823,0.8214142,-0.01799957],[-2,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
+    
+    ! S2: Color Sensor Station
+    CONST robtarget pSensor_Measure := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    
+    ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- GRID CONSTANTS ---
+    ! --- GRID CONSTANTS (Simona's 58mm offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 40; 
-    CONST num OFFSET_Y := 40; 
+    CONST num OFFSET_X := 58; 
+    CONST num OFFSET_Y := 58; 
 
     ! --- STATISTICS ---
     VAR num count_total := 0;
@@ -16,12 +24,18 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
 
-    ! --- PROCESS VARIABLES ---
+    ! --- PROCESS STATE FLAGS (Ivan's Logic) ---
+    VAR bool operatorReady := FALSE;
+    VAR bool blockPicked := FALSE;
+    VAR bool measurementValid := FALSE;
+    VAR bool Error_NoPart := FALSE;
+    
     VAR num answer;
     
    ! --- MAIN PROGRAM ---
     PROC main()
-        VAR robtarget current_target;
+        VAR robtarget current_pick;
+        VAR robtarget current_dest;
         VAR num row;
         VAR num col;
         VAR num x_offs;
@@ -29,20 +43,25 @@ MODULE MainModule
 
         InitProgram; 
 
-        ! @IVAN: Start Cycle Interaction (from feat/start-signal)
-        TPWrite "Place workpieces on the grid.";
-        TPReadFK answer, "Press START when ready", "START", "", "", "", "";
+        ! @IVAN: Start Cycle Interaction
+        TPWrite "Place workpieces on the Pickup Grid (S1).";
+        TPReadFK answer, "Confirm workpieces are ready?", "READY", "", "", "", "";
         
-        IF answer <> 1 THEN
-            TPWrite "Cycle cancelled.";
+        IF answer = 1 THEN
+            operatorReady := TRUE;
+            TPWrite "Cycle starting...";
+        ELSE
+            TPWrite "Operation aborted by user.";
             EXIT;
         ENDIF
+
+        ! TODO: Implement PLC Handshake (SetDO Robot_Busy, 1)
 
         TPWrite "Moving to safe Home position...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ! @SIMONA: Snake Loop Implementation (from feature/offsets)
-        TPWrite "Processing the 4x4 grid...";
+        ! @SIMONA: Snake Loop with Second Platform Logic
+        TPWrite "Processing 4x4 Grid Transfer...";
         FOR row FROM 0 TO GRID_ROWS - 1 DO
             FOR col FROM 0 TO GRID_COLS - 1 DO
                 y_offs := row * OFFSET_Y;
@@ -54,13 +73,18 @@ MODULE MainModule
                     x_offs := (GRID_COLS - 1 - col) * OFFSET_X;
                 ENDIF
                 
-                current_target := Offs(pGrid_Ref, x_offs, y_offs, 0);
-                ProcessBlock(current_target);
+                ! Calculate points for both grids
+                current_pick := Offs(pGrid_Pick_Ref, x_offs, y_offs, 0);
+                current_dest := Offs(pGrid_Dest_Ref, x_offs, y_offs, 0);
+                
+                ProcessTransfer(current_pick, current_dest);
             ENDFOR
         ENDFOR
         
-        TPWrite "Cycle complete. Returning Home...";
+        TPWrite "Batch complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
+        
+        ! TODO: Implement PLC Handshake (SetDO Robot_Done, 1)
         
         ShowResults; 
     ENDPROC
@@ -73,77 +97,85 @@ MODULE MainModule
         count_correct := 0;
         count_wrong := 0;
         count_empty := 0;
+        operatorReady := FALSE;
+        blockPicked := FALSE;
+        Error_NoPart := FALSE;
     ENDPROC
 
-    PROC ProcessBlock(robtarget target_pos)
-        VAR robtarget approach_pos;
-        approach_pos := Offs(target_pos, 0, 0, 50); 
+    PROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
+        VAR robtarget approach_pick;
+        VAR robtarget approach_dest;
         
-        ! Approach and descend
-        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
+        approach_pick := Offs(pick_pos, 0, 0, 50); 
+        approach_dest := Offs(dest_pos, 0, 0, 50);
+        
+        ! 1. PICKUP PHASE
+        MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL pick_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! @IVAN: Gripper Action
         SetDO DO_Gripper, 1;
         
-        ! @BEA: Empty Spot Detection (from feature/bea-error-handling)
-        WaitTime 1; ! Requirement: Wait 1s
+        ! @BEA: Gripper Feedback Logic
+        WaitTime 1; 
         IF DI_GripperClose = 0 THEN
+            ! Error handling: Slot is empty
             count_empty := count_empty + 1;
-            TPWrite "Position empty. Skipping...";
-            SetDO DO_Gripper, 0; ! Reset gripper
-            MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
+            Error_NoPart := TRUE;
+            TPWrite "S1 Position Empty. Moving to next...";
+            SetDO DO_Gripper, 0; 
+            MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
             RETURN;
         ENDIF
 
         ! Block successfully gripped
-        ! Transport to sensor
+        blockPicked := TRUE;
+        Error_NoPart := FALSE;
+        count_total := count_total + 1;
+        
+        ! 2. MEASUREMENT PHASE
+        MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
         MeasureColor;
     
-        ! Return block to original grid position
-        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
+        ! 3. PLACEMENT PHASE (Second Platform)
+        MoveJ approach_dest, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL dest_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! @IVAN: Release block
         SetDO DO_Gripper, 0;
         WaitTime 0.5;
+        blockPicked := FALSE;
     
-        ! Retreat safely
-        MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
+        MoveL approach_dest, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
     
     PROC MeasureColor()
-        ! Approach sensor safely
-        MoveJ Offs(P_Color_ict, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL P_Color_ict, v50, fine, t_grijper1\WObj:=wobj0;
+        ! Move to sensor
+        MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! @BEA: Sensor Logic (Partially implemented in feature/bea-color-sensor-logic)
-        ! Requirement: Approve (Blue, Green), Reject (Yellow)
+        ! @BEA: Color Evaluation
+        ! TODO: Replace with real DI signals (e.g., DI_Color_Blue, DI_Color_Yellow)
+        ! Requirements: Approved = Blue/Green, Rejected = Yellow
         
-        ! Placeholder for actual DI reading (Signals need to be verified)
-        ! For now, we increment total but color stats are pending real sensor integration
-        count_total := count_total + 1;
+        WaitTime 0.5; ! Simulating sensor read
         
-        ! TODO: Implement real sensor signal checks here
-        ! IF DI_Color_Blue = 1 OR DI_Color_Green = 1 THEN
+        ! Placeholder logic - Update with real signals when hardware is verified
+        ! IF DI_Color_Blue = 1 THEN
         !     count_correct := count_correct + 1;
-        ! ELSEIF DI_Color_Yellow = 1 THEN
-        !     count_wrong := count_wrong + 1;
+        !     measurementValid := TRUE;
         ! ENDIF
         
-        WaitTime 0.5; 
-    
-        ! Leave sensor safely
-        MoveL Offs(P_Color_ict, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
+        TPWrite "Measurement complete.";
+        
+        MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
 
     PROC ShowResults()
-        TPWrite "--- BATCH QUALITY REPORT ---";
-        TPWrite "Total Objects: " \Num:=count_total;
-        TPWrite "Correct Colors: " \Num:=count_correct;
-        TPWrite "Incorrect Colors: " \Num:=count_wrong;
-        TPWrite "Missing Objects: " \Num:=count_empty;
-        TPWrite "----------------------------";
+        TPWrite "--- FINAL BATCH REPORT ---";
+        TPWrite "Total Parts Processed: " \Num:=count_total;
+        TPWrite "Approved (Blue/Green): " \Num:=count_correct;
+        TPWrite "Rejected (Yellow):     " \Num:=count_wrong;
+        TPWrite "Empty Slots Detected:  " \Num:=count_empty;
+        TPWrite "--------------------------";
     ENDPROC
 
 ENDMODULE
