@@ -12,11 +12,12 @@ MODULE MainModule
     ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- GRID CONSTANTS (58mm offsets) ---
+    ! --- GRID CONSTANTS (40mm offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 58; 
-    CONST num OFFSET_Y := 58; 
+    ! 58mm was outside of arm reach
+    CONST num OFFSET_X := 40; 
+    CONST num OFFSET_Y := 40; 
 
     ! --- STATISTICS ---
     VAR num count_total := 0;
@@ -77,7 +78,7 @@ MODULE MainModule
                 current_pick := Offs(pGrid_Pick_Ref, x_offs, y_offs, 0);
                 current_dest := Offs(pGrid_Dest_Ref, x_offs, y_offs, 0);
                 
-                ProcessTransfer(current_pick, current_dest);
+                ProcessTransfer current_pick, current_dest;
             ENDFOR
         ENDFOR
         
