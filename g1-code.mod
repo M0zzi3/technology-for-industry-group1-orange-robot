@@ -1,16 +1,14 @@
 MODULE MainModule
     ! --- TARGETS ---
-    CONST robtarget pPickGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget pDestGrid_Ref := [[-128.7875,-530.1699,303.2513],[0.01374067,0.5698823,0.8214142,-0.01799957],[-2,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
-    
-    CONST robtarget P_Color_ict:=[[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget P_Color_ict := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! --- GRID CONSTANTS ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 58; 
-    CONST num OFFSET_Y := 58; 
+    CONST num OFFSET_X := 40; 
+    CONST num OFFSET_Y := 40; 
 
     ! --- STATISTICS ---
     VAR num count_total := 0;
@@ -18,59 +16,48 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
 
-     ! --- ERROR FLAGS ---
-    VAR bool Error_NoPart := FALSE;
-    VAR bool Error_GripperFault := FALSE;
-    VAR bool System_ResetRequired := FALSE;
-    
-    
+    ! --- PROCESS VARIABLES ---
+    VAR num answer;
     
    ! --- MAIN PROGRAM ---
     PROC main()
-        VAR robtarget current_pos;  ! Current calculated grid position
-        VAR num row;                ! Current row number
-        VAR num col;                ! Current column number
-        VAR num x_offset;           ! Calculated X offset
-        VAR num y_offset;           ! Calculated Y offset
-        InitProgram; ! Maks's Feature: Wipes screen and zeros stats
+        VAR robtarget current_target;
+        VAR num row;
+        VAR num col;
+        VAR num x_offs;
+        VAR num y_offs;
 
-        TPWrite "Place workpieces and press start switch";
+        InitProgram; 
+
+        ! @IVAN: Start Cycle Interaction (from feat/start-signal)
+        TPWrite "Place workpieces on the grid.";
+        TPReadFK answer, "Press START when ready", "START", "", "", "", "";
         
-        ! ==========================================
-        ! @IVAN - TASK 1: Wait for Operator
-        ! INSTRUCTIONS: Use 'WaitDI' to wait for the Start_Cycle signal here.
-        ! ==========================================
-        
+        IF answer <> 1 THEN
+            TPWrite "Cycle cancelled.";
+            EXIT;
+        ENDIF
+
         TPWrite "Moving to safe Home position...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ! ==========================================
-        ! @SIMONA - TASK 1: The Snake Loop
-        ! INSTRUCTIONS: Delete the single ProcessBlock line below. 
-        ! Create nested FOR loops. Calculate the X and Y offsets.
-        ! pick_target := Offs(pPickGrid_Ref, x, y, 0);
-        ! drop_target := Offs(pDestGrid_Ref, x, y, 0);
-        ! Call ProcessBlock(pick_target, drop_target);
-        ! ==========================================
-        
-        TPWrite "Processing the grid...";
-        FOR row FROM 0 TO GRID_ROWS - 1 DO              ! Go through all rows
-            FOR col FROM 0 TO GRID_COLS - 1 DO          ! Go through all columns
-                y_offset := row * OFFSET_Y;             ! Calculate row distance from first point
-        
-                IF row MOD 2 = 0 THEN                               ! Even rows go left to right
-                    x_offset := col * OFFSET_X;                     ! Normal column direction
-                ELSE                                                ! Odd rows go right to left
-                    x_offset := (GRID_COLS - 1 - col) * OFFSET_X;   ! Reverse direction for snake movement
+        ! @SIMONA: Snake Loop Implementation (from feature/offsets)
+        TPWrite "Processing the 4x4 grid...";
+        FOR row FROM 0 TO GRID_ROWS - 1 DO
+            FOR col FROM 0 TO GRID_COLS - 1 DO
+                y_offs := row * OFFSET_Y;
+                
+                ! Snake logic: Reverse direction for odd rows
+                IF row MOD 2 = 0 THEN
+                    x_offs := col * OFFSET_X;
+                ELSE
+                    x_offs := (GRID_COLS - 1 - col) * OFFSET_X;
                 ENDIF
-        
-                current_pos := Offs(pGrid_Ref, x_offset, y_offset, 0); ! Create current grid point from reference point
-        
-                ProcessBlock(current_pos);              ! Go down, pick/check/sensor/return through ProcessBlock
-        
-            ENDFOR                                      ! End column loop
-        
-        ENDFOR 
+                
+                current_target := Offs(pGrid_Ref, x_offs, y_offs, 0);
+                ProcessBlock(current_target);
+            ENDFOR
+        ENDFOR
         
         TPWrite "Cycle complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
@@ -88,84 +75,63 @@ MODULE MainModule
         count_empty := 0;
     ENDPROC
 
-    PROC ProcessBlock(robtarget pick_pos, robtarget drop_pos)
-        VAR robtarget approach_pick;
-        VAR robtarget approach_drop;
+    PROC ProcessBlock(robtarget target_pos)
+        VAR robtarget approach_pos;
+        approach_pos := Offs(target_pos, 0, 0, 50); 
         
-        approach_pick := Offs(pick_pos, 0, 0, 50); 
-        approach_drop := Offs(drop_pos, 0, 0, 50);
-        
-        ! Approach and descend to right platform
-        MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL pick_pos, v50, fine, t_grijper1\WObj:=wobj0;
+        ! Approach and descend
+        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @IVAN - TASK 2: Close the Gripper
-        ! ==========================================
-
-      ! --- GRIPPER AND EMPTY POSITION ERROR HANDLING (bea) ---
-
-                    ! --- EMPTY POSITION / GRIP CHECK LOGIC ---
-                    ! The gripper is closed before checking the feedback signal.
-                    ! After a short delay, DI_GripperClose is checked to determine whether a block was actually gripped.
-                    ! If DI_GripperClose = 0, the position is considered empty.
-                    ! Empty positions are not fatal errors: the robot stores the result, opens the gripper,
-                    ! returns to the safe approach position, and continues with the next grid position.
-                    ! RETURN is used to skip the color measurement because there is no block to inspect.
-
+        ! @IVAN: Gripper Action
         SetDO DO_Gripper, 1;
-        WaitTime 1;
-
+        
+        ! @BEA: Empty Spot Detection (from feature/bea-error-handling)
+        WaitTime 1; ! Requirement: Wait 1s
         IF DI_GripperClose = 0 THEN
-            Error_NoPart := TRUE;
             count_empty := count_empty + 1;
-
-            TPWrite "Empty position detected";
-            
-            ! Open the gripper for safety before leaving the position.
-            SetDO DO_Gripper, 0;
-            WaitTime 0.5;
-
+            TPWrite "Position empty. Skipping...";
+            SetDO DO_Gripper, 0; ! Reset gripper
             MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
-
-            ! Stop processing this position.
-            ! This prevents the robot from going to the color sensor without a block.
             RETURN;
         ENDIF
 
-        ! A block was detected, so the program continues with the normal process.
-        ! The object counter is updated and the block will be sent to the color sensor.
-        Error_NoPart := FALSE;
-        count_total := count_total + 1;
-        TPWrite "Object detected";
-        
-        ! If we grabbed a block, go measure it
+        ! Block successfully gripped
+        ! Transport to sensor
         MeasureColor;
     
-        ! Take block to the LEFT platform
-        MoveJ approach_drop, v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL drop_pos, v50, fine, t_grijper1\WObj:=wobj0;
+        ! Return block to original grid position
+        MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @IVAN - TASK 3: Open the Gripper
-        ! ==========================================
-    
-        ! Open gripper after placing the block back
+        ! @IVAN: Release block
         SetDO DO_Gripper, 0;
         WaitTime 0.5;
-
+    
         ! Retreat safely
-        MoveL approach_drop, v100, z10, t_grijper1\WObj:=wobj0;
+        MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
-
+    
     PROC MeasureColor()
         ! Approach sensor safely
         MoveJ Offs(P_Color_ict, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
         MoveL P_Color_ict, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @BEA - TASK 2: Sensor Logic
-        ! ==========================================
+        ! @BEA: Sensor Logic (Partially implemented in feature/bea-color-sensor-logic)
+        ! Requirement: Approve (Blue, Green), Reject (Yellow)
+        
+        ! Placeholder for actual DI reading (Signals need to be verified)
+        ! For now, we increment total but color stats are pending real sensor integration
+        count_total := count_total + 1;
+        
+        ! TODO: Implement real sensor signal checks here
+        ! IF DI_Color_Blue = 1 OR DI_Color_Green = 1 THEN
+        !     count_correct := count_correct + 1;
+        ! ELSEIF DI_Color_Yellow = 1 THEN
+        !     count_wrong := count_wrong + 1;
+        ! ENDIF
+        
+        WaitTime 0.5; 
     
         ! Leave sensor safely
         MoveL Offs(P_Color_ict, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
@@ -173,10 +139,10 @@ MODULE MainModule
 
     PROC ShowResults()
         TPWrite "--- BATCH QUALITY REPORT ---";
-        TPWrite "Amount of objects: " \Num:=count_total;
-        TPWrite "Amount of correct colors: " \Num:=count_correct;
-        TPWrite "Amount of incorrect colors: " \Num:=count_wrong;
-        TPWrite "Amount of missing objects: " \Num:=count_empty;
+        TPWrite "Total Objects: " \Num:=count_total;
+        TPWrite "Correct Colors: " \Num:=count_correct;
+        TPWrite "Incorrect Colors: " \Num:=count_wrong;
+        TPWrite "Missing Objects: " \Num:=count_empty;
         TPWrite "----------------------------";
     ENDPROC
 
