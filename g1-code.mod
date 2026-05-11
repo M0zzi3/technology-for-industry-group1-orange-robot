@@ -4,7 +4,7 @@ MODULE MainModule
     CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference
-    CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52], [0.000146671,6.84201E-05, -1, -9.78187E-05]. [-1, -1, -1,0], [9+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52],[0.000146671,6.84201E-05, -1, -9.78187E-05], [-1, -1, -1,0], [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S2: Color Sensor Station
     CONST robtarget pSensor_Measure := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
@@ -12,6 +12,10 @@ MODULE MainModule
     ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
+    ! --- SENSOR CONSTANTS (MISSING VARIABLES ADDED HERE) ---
+    CONST num LASER_OFFSET_X := 25; ! Adjust this to the actual mm distance
+    CONST num LASER_OFFSET_Y := 0;  ! Adjust this to the actual mm distance
+
     ! --- GRID CONSTANTS (45mm offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
@@ -24,7 +28,6 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
     VAR num count_unknown := 0;
-
 
 
     ! --- PROCESS STATE FLAGS ---
@@ -115,7 +118,7 @@ MODULE MainModule
         System_ResetRequired := FALSE;
     ENDPROC
 
-    PPROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
+    PROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
         VAR robtarget approach_pick;
         VAR robtarget approach_dest;
         VAR robtarget actual_grip_pos;
