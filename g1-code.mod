@@ -1,5 +1,5 @@
 MODULE MainModule
-    ! --- ROBOT TARGETS ---
+    ! --- ROBOT TARGETSsss ---
     ! S1: Pickup Grid Reference
     CONST robtarget pGrid_Pick_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
@@ -24,12 +24,19 @@ MODULE MainModule
     VAR num count_correct := 0;
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
+    VAR num count_unknown := 0;
+
+
 
     ! --- PROCESS STATE FLAGS ---
     VAR bool operatorReady := FALSE;
     VAR bool blockPicked := FALSE;
     VAR bool measurementValid := FALSE;
     VAR bool Error_NoPart := FALSE;
+    VAR bool Error_GripperFault := FALSE;
+    VAR bool Error_SensorFailure := FALSE;
+    VAR bool Error_InvalidColour := FALSE;
+    VAR bool System_ResetRequired := FALSE;
     
     VAR num answer;
     
@@ -98,9 +105,15 @@ MODULE MainModule
         count_correct := 0;
         count_wrong := 0;
         count_empty := 0;
+        count_unknown := 0;
         operatorReady := FALSE;
         blockPicked := FALSE;
+        measurementValid := FALSE;
         Error_NoPart := FALSE;
+        Error_GripperFault := FALSE;
+        Error_SensorFailure := FALSE;
+        Error_InvalidColour := FALSE;
+        System_ResetRequired := FALSE;
     ENDPROC
 
     PROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
@@ -116,17 +129,29 @@ MODULE MainModule
     
         SetDO DO_Gripper, 1;
         
-        ! @BEA: Gripper Feedback Logic
-        WaitTime 1; 
+! --- ERROR 1 & 2: Empty position / Gripper fault check (Bea) ---
+        WaitTime 1;
         IF DI_GripperClose = 0 THEN
-            ! Error handling: Slot is empty
-            count_empty := count_empty + 1;
-            Error_NoPart := TRUE;
-            TPWrite "S1 Position Empty. Moving to next...";
-            SetDO DO_Gripper, 0; 
-            MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
-            RETURN;
+            WaitTime 0.5;
+            IF DI_GripperClose = 0 THEN
+                count_empty := count_empty + 1;
+                Error_NoPart := TRUE;
+                TPWrite "S1 Position Empty. Moving to next...";
+                SetDO DO_Gripper, 0;
+                WaitTime 0.5;
+                MoveL approach_pick, v100, z10, t_grijper1\WObj:=wobj0;
+                RETURN;
+            ELSE
+                Error_GripperFault := TRUE;
+                System_ResetRequired := TRUE;
+                TPWrite "ERROR 2: Gripper signal unstable. Stopping cycle.";
+                SetDO DO_Gripper, 0;
+                MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
+                TPWrite "Check gripper and block position. Reset required.";
+                STOP;
+            ENDIF
         ENDIF
+
 
         ! Block successfully gripped
         blockPicked := TRUE;
@@ -149,19 +174,23 @@ MODULE MainModule
     ENDPROC
     
     PROC MeasureColor()
-    ! Move to sensor approach
+    ! Move to sensor
     MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
     MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
 
-    ! Wait for sensor to stabilize on the workpiece
+    ! Wait for sensor to stabilize
     WaitTime 0.5;
 
-    ! --- COLOR EVALUATION (Bea) ---
-    ! Sensor outputs (confirmed settings - orange robot):
-    !   Output1 (DI_Color_1) = Red    -> not an expected color
-    !   Output2 (DI_Color_2) = Yellow -> REJECTED
-    !   Output3 (DI_Color_3) = Green  -> APPROVED
-    !   Output4 (DI_Color_4) = Blue   -> APPROVED
+    IF DI_Color_1 = 0 AND DI_Color_2 = 0 AND DI_Color_3 = 0 AND DI_Color_4 = 0 THEN
+        Error_SensorFailure := TRUE;
+        System_ResetRequired := TRUE;
+        measurementValid := FALSE;
+        TPWrite "ERROR 3: Colour sensor no response. Stopping cycle.";
+        MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
+        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
+        TPWrite "Check sensor alignment and cable. Reset required.";
+        STOP;
+    ENDIF
 
     IF DI_Color_4 = 1 THEN
         count_correct := count_correct + 1;
@@ -176,13 +205,10 @@ MODULE MainModule
         measurementValid := TRUE;
         TPWrite "Color: YELLOW -> Rejected";
     ELSEIF DI_Color_1 = 1 THEN
-        count_wrong := count_wrong + 1;
+        Error_InvalidColour := TRUE;
+        count_unknown := count_unknown + 1;
         measurementValid := FALSE;
-        TPWrite "Color: RED -> Unexpected color";
-    ELSE
-        count_wrong := count_wrong + 1;
-        measurementValid := FALSE;
-        TPWrite "Color: UNKNOWN -> Check sensor";
+        TPWrite "ERROR 4: RED detected -> Invalid colour. Logged.";
     ENDIF
 
     ! Leave sensor safely
@@ -194,6 +220,7 @@ ENDPROC
         TPWrite "Total Parts Processed: " \Num:=count_total;
         TPWrite "Approved (Blue/Green): " \Num:=count_correct;
         TPWrite "Rejected (Yellow):     " \Num:=count_wrong;
+        TPWrite "Unknown/Invalid:       " \Num:=count_unknown;
         TPWrite "Empty Slots Detected:  " \Num:=count_empty;
         TPWrite "--------------------------";
     ENDPROC
