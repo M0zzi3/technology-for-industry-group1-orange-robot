@@ -1,7 +1,7 @@
 MODULE MainModule
     ! --- TARGETS ---
     CONST robtarget pGrid_Ref := [[359.127,0,188.4615],[0,0,0.9999999,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget pSensor_Measure := [[359.1269,236.1245,188.4613],[8.42937E-08,-5.596081E-08,-0.9999999,3.015708E-08],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget P_Color_ict := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! --- GRID CONSTANTS ---
@@ -16,56 +16,53 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
 
-
-    ! --- PROCESS STATE VARIABLES ---
-    VAR bool operatorReady:= FALSE;
-    VAR bool blockPicked := FALSE;
-    VAR bool noBlockPicked := FALSE;
-    VAR bool measurementValid := FALSE;
-    VAR bool colourOK := FALSE;
-    VAR bool colourNOK := FALSE;
-    VAR bool blockReturned := FALSE;
-     ! --- ERROR FLAGS ---
-    VAR bool Error_NoPart := FALSE;
-    VAR bool Error_GripperFault := FALSE;
-    VAR bool System_ResetRequired := FALSE;
-    VAR num answer;  
-    
+    ! --- PROCESS VARIABLES ---
+    VAR num answer;
     
    ! --- MAIN PROGRAM ---
     PROC main()
-        InitProgram; !  Wipes screen and zeros stats
+        VAR robtarget current_target;
+        VAR num row;
+        VAR num col;
+        VAR num x_offs;
+        VAR num y_offs;
+
+        InitProgram; 
+
+        ! @IVAN: Start Cycle Interaction (from feat/start-signal)
+        TPWrite "Place workpieces on the grid.";
+        TPReadFK answer, "Press START when ready", "START", "", "", "", "";
         
-        TPWrite "Moving to safe Home position...";
-        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-
-
-        TPWrite "Place the workpieces on the grid.";
-        TPReadFK answer, "Press OK when the workpieces are ready.", "OK", "", "", "", "";
-        IF answer = 1 THEN
-            TPWrite "Starting cycle...";
-        ELSE
-            TPWrite "Cycle not started.";
-            RETURN;
+        IF answer <> 1 THEN
+            TPWrite "Cycle cancelled.";
+            EXIT;
         ENDIF
 
-
-        ! ==========================================
-        ! @SIMONA - TASK 1: The Snake Loop
-        ! INSTRUCTIONS: Delete the single ProcessBlock line below. 
-        ! Create nested FOR loops (row and col). 
-        ! Calculate the X and Y offsets.
-        ! Use 'Offs(pGrid_Ref, x, y, 0)' to find the target.
-        ! Call ProcessBlock(your_calculated_target);
-        ! ==========================================
+        TPWrite "Moving to safe Home position...";
+        MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        TPWrite "Processing the grid...";
-        ProcessBlock(pGrid_Ref); ! <-- SIMONA: REPLACE THIS WITH YOUR LOOPS
+        ! @SIMONA: Snake Loop Implementation (from feature/offsets)
+        TPWrite "Processing the 4x4 grid...";
+        FOR row FROM 0 TO GRID_ROWS - 1 DO
+            FOR col FROM 0 TO GRID_COLS - 1 DO
+                y_offs := row * OFFSET_Y;
+                
+                ! Snake logic: Reverse direction for odd rows
+                IF row MOD 2 = 0 THEN
+                    x_offs := col * OFFSET_X;
+                ELSE
+                    x_offs := (GRID_COLS - 1 - col) * OFFSET_X;
+                ENDIF
+                
+                current_target := Offs(pGrid_Ref, x_offs, y_offs, 0);
+                ProcessBlock(current_target);
+            ENDFOR
+        ENDFOR
         
         TPWrite "Cycle complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ShowResults; ! Prints the final stats
+        ShowResults; 
     ENDPROC
 
     ! --- SUB-PROCEDURES ---
@@ -86,91 +83,66 @@ MODULE MainModule
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @IVAN - TASK 2: Close the Gripper
-        ! INSTRUCTIONS: Use 'SetDO' to turn on DO_Gripper.
-        ! ==========================================
-
-      ! --- GRIPPER AND EMPTY POSITION ERROR HANDLING (bea) ---
-
-                    ! --- EMPTY POSITION / GRIP CHECK LOGIC ---
-                    ! The gripper is closed before checking the feedback signal.
-                    ! After a short delay, DI_GripperClose is checked to determine whether a block was actually gripped.
-                    ! If DI_GripperClose = 0, the position is considered empty.
-                    ! Empty positions are not fatal errors: the robot stores the result, opens the gripper,
-                    ! returns to the safe approach position, and continues with the next grid position.
-                    ! RETURN is used to skip the color measurement because there is no block to inspect.
-
+        ! @IVAN: Gripper Action
         SetDO DO_Gripper, 1;
-        WaitTime 1;
-
+        
+        ! @BEA: Empty Spot Detection (from feature/bea-error-handling)
+        WaitTime 1; ! Requirement: Wait 1s
         IF DI_GripperClose = 0 THEN
-            Error_NoPart := TRUE;
             count_empty := count_empty + 1;
-
-            TPWrite "Empty position detected";
-            
-            ! Open the gripper for safety before leaving the position.
-            SetDO DO_Gripper, 0;
-            WaitTime 0.5;
-
+            TPWrite "Position empty. Skipping...";
+            SetDO DO_Gripper, 0; ! Reset gripper
             MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
-
-            ! Stop processing this position.
-            ! This prevents the robot from going to the color sensor without a block.
             RETURN;
         ENDIF
 
-        ! A block was detected, so the program continues with the normal process.
-        ! The object counter is updated and the block will be sent to the color sensor.
-        Error_NoPart := FALSE;
-        count_total := count_total + 1;
-        TPWrite "Object detected";
-        
-        ! If we grabbed a block, go measure it
+        ! Block successfully gripped
+        ! Transport to sensor
         MeasureColor;
     
-        ! Return block to grid
+        ! Return block to original grid position
         MoveJ approach_pos, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL target_pos, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @IVAN - TASK 3: Open the Gripper
-        ! INSTRUCTIONS: Use 'SetDO' to turn off DO_Gripper.
-        ! ==========================================
-    
-        ! Open gripper after placing the block back
+        ! @IVAN: Release block
         SetDO DO_Gripper, 0;
         WaitTime 0.5;
-
+    
         ! Retreat safely
         MoveL approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
-
+    
     PROC MeasureColor()
         ! Approach sensor safely
-        MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
+        MoveJ Offs(P_Color_ict, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
+        MoveL P_Color_ict, v50, fine, t_grijper1\WObj:=wobj0;
     
-        ! ==========================================
-        ! @BEA - TASK 2: Sensor Logic
-        ! INSTRUCTIONS: 
-        ! 1. Read the color sensor signal here.
-        ! 2. IF Blue/Green: Increment 'count_correct'
-        ! 3. IF Yellow: Increment 'count_wrong'
-        ! 4. Always increment 'count_total'
-        ! ==========================================
+        ! @BEA: Sensor Logic (Partially implemented in feature/bea-color-sensor-logic)
+        ! Requirement: Approve (Blue, Green), Reject (Yellow)
+        
+        ! Placeholder for actual DI reading (Signals need to be verified)
+        ! For now, we increment total but color stats are pending real sensor integration
+        count_total := count_total + 1;
+        
+        ! TODO: Implement real sensor signal checks here
+        ! IF DI_Color_Blue = 1 OR DI_Color_Green = 1 THEN
+        !     count_correct := count_correct + 1;
+        ! ELSEIF DI_Color_Yellow = 1 THEN
+        !     count_wrong := count_wrong + 1;
+        ! ENDIF
+        
+        WaitTime 0.5; 
     
         ! Leave sensor safely
-        MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
+        MoveL Offs(P_Color_ict, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
 
     PROC ShowResults()
         TPWrite "--- BATCH QUALITY REPORT ---";
-        TPWrite "Amount of objects: " \Num:=count_total;
-        TPWrite "Amount of correct colors: " \Num:=count_correct;
-        TPWrite "Amount of incorrect colors: " \Num:=count_wrong;
-        TPWrite "Amount of missing objects: " \Num:=count_empty;
+        TPWrite "Total Objects: " \Num:=count_total;
+        TPWrite "Correct Colors: " \Num:=count_correct;
+        TPWrite "Incorrect Colors: " \Num:=count_wrong;
+        TPWrite "Missing Objects: " \Num:=count_empty;
         TPWrite "----------------------------";
     ENDPROC
 
