@@ -149,26 +149,45 @@ MODULE MainModule
     ENDPROC
     
     PROC MeasureColor()
-        ! Move to sensor
-        MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
-        MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
-    
-        ! @BEA: Color Evaluation
-        ! TODO: Replace with real DI signals (e.g., DI_Color_Blue, DI_Color_Yellow)
-        ! Requirements: Approved = Blue/Green, Rejected = Yellow
-        
-        WaitTime 0.5; ! Simulating sensor read
-        
-        ! Placeholder logic - Update with real signals when hardware is verified
-        ! IF DI_Color_Blue = 1 THEN
-        !     count_correct := count_correct + 1;
-        !     measurementValid := TRUE;
-        ! ENDIF
-        
-        TPWrite "Measurement complete.";
-        
-        MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
-    ENDPROC
+    ! Move to sensor approach
+    MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
+    MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
+
+    ! Wait for sensor to stabilize on the workpiece
+    WaitTime 0.5;
+
+    ! --- COLOR EVALUATION (Bea) ---
+    ! Sensor outputs (confirmed settings - orange robot):
+    !   Output1 (DI_Color_1) = Red    -> not an expected color
+    !   Output2 (DI_Color_2) = Yellow -> REJECTED
+    !   Output3 (DI_Color_3) = Green  -> APPROVED
+    !   Output4 (DI_Color_4) = Blue   -> APPROVED
+
+    IF DI_Color_4 = 1 THEN
+        count_correct := count_correct + 1;
+        measurementValid := TRUE;
+        TPWrite "Color: BLUE -> Approved";
+    ELSEIF DI_Color_3 = 1 THEN
+        count_correct := count_correct + 1;
+        measurementValid := TRUE;
+        TPWrite "Color: GREEN -> Approved";
+    ELSEIF DI_Color_2 = 1 THEN
+        count_wrong := count_wrong + 1;
+        measurementValid := TRUE;
+        TPWrite "Color: YELLOW -> Rejected";
+    ELSEIF DI_Color_1 = 1 THEN
+        count_wrong := count_wrong + 1;
+        measurementValid := FALSE;
+        TPWrite "Color: RED -> Unexpected color";
+    ELSE
+        count_wrong := count_wrong + 1;
+        measurementValid := FALSE;
+        TPWrite "Color: UNKNOWN -> Check sensor";
+    ENDIF
+
+    ! Leave sensor safely
+    MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
+ENDPROC
 
     PROC ShowResults()
         TPWrite "--- FINAL BATCH REPORT ---";
