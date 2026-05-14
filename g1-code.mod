@@ -1,10 +1,10 @@
 MODULE MainModule
-    ! --- ROBOT TARGETSsss ---
-    ! S1: Pickup Grid Reference
+    ! --- ROBOT TARGETS ---
+    ! S1: Pickup Grid Reference (Where the LASER points at the center of the cell)
     CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference
-    CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52],[0.000146671,6.84201E-05, -1, -9.78187E-05], [-1, -1, -1,0], [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52], [0.000146671,6.84201E-05, -1, -9.78187E-05], [-1, -1, -1,0], [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S2: Color Sensor Station
     CONST robtarget pSensor_Measure := [[266.90,275.43,180.12],[9.3566E-05,-0.709263,-0.704944,0.000120329],[0,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
@@ -31,7 +31,6 @@ MODULE MainModule
     VAR num count_wrong := 0;
     VAR num count_empty := 0;
     VAR num count_unknown := 0;
-
 
     ! --- PROCESS STATE FLAGS ---
     VAR bool operatorReady := FALSE;
@@ -132,7 +131,7 @@ MODULE MainModule
         approach_pick := Offs(pick_pos, 0, 0, 50); 
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
-        ! LASER SENSOR PHASE
+        ! 1. LASER SENSOR PHASE
         ! Move above the piece so the laser points directly at it
         MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
         
