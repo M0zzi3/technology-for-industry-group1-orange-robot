@@ -53,6 +53,10 @@ MODULE MainModule
     VAR bool System_ResetRequired := FALSE;
     
     VAR num answer; ! Dialog response holder
+
+    ! ===========================================================================
+    ! SYSTEM MAIN-PROGRAM
+    ! ===========================================================================
     
     PROC main()
         VAR robtarget current_pick;
