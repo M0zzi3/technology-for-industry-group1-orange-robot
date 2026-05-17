@@ -1,39 +1,42 @@
-# Project Overview: Robot Sorting (Orange Robot)
+# Project Overview: Laser-Guided Robot Sorting (Orange Robot)
 
-This project controls an **ABB IRB120 6-axis robot** to automatically process workpieces from a 4x4 grid (S1), inspect them for quality, and transfer them to a destination grid (S4) on a second platform.
+This project controls an **ABB IRB120 6-axis robot** to automatically process workpieces from a 4x4 pickup grid (S1), inspect them for quality using a color sensor (S2), and transfer them to a destination grid (S4) on a second platform.
 
-## Features & Contributions
+The system features **dynamic laser-guided picking**, allowing it to detect the presence and height of workpieces in real-time.
 
-| Feature                   | Contributor | Implementation Detail                                                                            |
-| :------------------------ | :---------- | :----------------------------------------------------------------------------------------------- |
-| **Grid Calibration**      | **Simona**  | Standardized grid offsets to **58mm** based on physical measurements.                            |
-| **Snake-Loop Navigation** | **Simona**  | Implemented optimized traversal logic (even rows L->R, odd rows R->L).                           |
-| **Interactive UI**        | **Ivan**    | Created FlexPendant `TPReadFK` dialogs for operator authorization.                               |
-| **State Tracking**        | **Ivan**    | Integrated boolean process flags (`operatorReady`, `blockPicked`) for HMI/PLC sync.              |
-| **Gripper Feedback**      | **Bea**     | Implemented `DI_GripperClose` monitoring with a 1s settling delay.                               |
-| **Error Handling**        | **Bea**     | Added logic to detect and skip empty grid slots, updating statistics without stopping the cycle. |
-| **Dual-Platform Logic**   | **Maks**    | Established the transfer logic from `pGrid_Pick_Ref` (S1) to `pGrid_Dest_Ref` (S4).              |
-| **Architecture**          | **Maks**    | Consolidated all individual feature branches into a unified `g1-code.mod` module.                |
+## 🛠 Features & Final Implementation
 
-## Remaining Tasks
+| Feature | Contributor | Description |
+| :--- | :--- | :--- |
+| **Laser-Guided Picking** | **Maks** | Uses a Sick distance sensor to detect parts and calculate dynamic Z-descent. |
+| **Snake-Loop Transfer** | **Simona** | Optimized traversal logic for the 4x4 grid to minimize robot travel time. |
+| **Interactive UI** | **Ivan** | FlexPendant `TPReadFK` dialogs for operator authorization and status tracking. |
+| **Dual-Platform Logic** | **Maks** | Implements full transfer from Pickup (S1) to Destination (S4). |
+| **Advanced Error Handling**| **Bea** | Detects empty slots, unstable gripper signals, and sensor failures. |
+| **Real-Time Statistics** | **Bea** | Tracks Total, Approved (Blue/Green), Rejected (Yellow), and Unknown (Red). |
 
-| Member     | Task                | Description                                                                             |
-| :--------- | :------------------ | :-------------------------------------------------------------------------------------- |
-| **Ivan**   | **PLC Handshake**   | Map and implement physical `SetDO` signals for `Robot_Busy` and `Robot_Done`.           |
-| **Bea**    | **Color Mapping**   | Update `MeasureColor` with real `DI` signal checks for Blue, Green, and Yellow.         |
-| **Simona** | **Grid Validation** | Run a full 4x4 simulation to ensure the 40mm offset aligns perfectly with the 3D model. |
-| **Maks**   | **Point Teaching**  | Verify and fine-tune the absolute coordinates of the `pGrid_Dest_Ref` station.          |
+## 🚦 Logic & Error Handling (ABB RAPID)
 
-## Hardware Configuration
+### Laser Picking Logic (`ProcessTransfer`)
+1.  **Measurement:** Robot approaches the grid cell; laser points directly at the piece.
+2.  **Detection:** If `AI_SensorSick > -50`, the piece is present.
+3.  **Alignment:** Robot shifts X/Y by `LASER_OFFSET_X/Y` to center the gripper over the piece.
+4.  **Descent:** Robot descends to `block_height + GRIP_DEPTH` for a precise pick.
 
-- **S1 (Pickup):** `pGrid_Pick_Ref`
-- **S4 (Destination):** `pGrid_Dest_Ref`
-- **S2 (Sensor):** `pSensor_Measure`
-- **I/O Signals:** `DO_Gripper`, `DI_GripperClose`
+### Fault Responses
+- **Error 1 (Empty Slot):** Laser detects `measured_val <= -50`. Slot is skipped.
+- **Error 2 (Grip Fail):** Laser saw a block but `DI_GripperClose = 0` after closing. Cycle stops for safety.
+- **Error 3 (Sensor Fail):** No color detected at S2. Cycle stops; return Home.
+- **Error 4 (Invalid Color):** Red detected. Logged as "Unknown"; cycle continues.
 
-## Development Workflow
+## 📋 Team Roadmap (Next Session Checklist)
 
-1. Pull the latest `feat/consolidated-features` branch.
-2. Edit `g1-code.mod` in VS Code.
-3. Load module into RobotStudio (`T_ROB1`).
-4. Set Program Pointer (PP) to `main` and run simulation.
+- [ ] **Ivan:** Implement PLC Handshake signals (`SetDO` for Busy/Done) - *Currently marked with TODO in code.*
+- [ ] **Simona:** Verify if the **40mm offset** matches the physical grid in the lab.
+- [ ] **Maks:** Re-teach the reference points (`pGrid_Pick_Ref`, `pGrid_Dest_Ref`) on the real controller.
+- [ ] **Bea:** Calibrate the `-50` laser threshold with a real block and the table.
+
+## 🚀 Development Workflow
+1. **Pull:** `git pull origin feat/laser-measure`
+2. **Load:** Sync `g1-code.mod` to the virtual or real controller.
+3. **Run:** Set PP to `main` and monitor the FlexPendant for "READY".
