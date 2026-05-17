@@ -1,9 +1,9 @@
 MODULE MainModule
     ! --- ROBOT TARGETS ---
-    ! S1: Pickup Grid Reference (Where the LASER points at the center of the cell)
+    ! S1: Pickup Grid Reference (Pointed where the LASER centers on the workpiece)
     CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! S4: Destination Grid Reference
+    ! S4: Destination Grid Reference (Second Platform)
     CONST robtarget pGrid_Dest_Ref := [[370.96, -347.85,118.52], [0.000146671,6.84201E-05, -1, -9.78187E-05], [-1, -1, -1,0], [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S2: Color Sensor Station
@@ -12,14 +12,16 @@ MODULE MainModule
     ! S0: Home Position
     CONST robtarget pHome := [[275.9205,0.02080205,667.3802],[0.7115182,-0.1236367,0.6797782,-0.1278957],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
-    ! --- SENSOR CONSTANTS (MISSING VARIABLES ADDED HERE) ---
-    CONST num LASER_OFFSET_X := 25; ! Adjust this to the actual mm distance
-    CONST num LASER_OFFSET_Y := 0;  ! Adjust this to the actual mm distance
-    CONST num EMPTY_DISTANCE := -50;
-    CONST num EMPTY_TOLERANCE := 2;
-    CONST num GRIP_DEPTH := -10;
+    ! --- SENSOR CONSTANTS ---
+    ! Physical distance from the laser beam to the center of the gripper
+    CONST num LASER_OFFSET_X := 25; 
+    CONST num LASER_OFFSET_Y := 0;  
+    
+    ! Calibration values for the Sick distance sensor
+    CONST num EMPTY_THRESHOLD := -50; ! If value is <= this, the spot is empty
+    CONST num GRIP_DEPTH := -5;       ! Additional mm to descend for a secure grip
 
-    ! --- GRID CONSTANTS (45mm offsets) ---
+    ! --- GRID CONSTANTS (45mm verified offsets) ---
     CONST num GRID_ROWS := 4;
     CONST num GRID_COLS := 4;
     CONST num OFFSET_X := 45; 
@@ -44,7 +46,7 @@ MODULE MainModule
     
     VAR num answer;
     
-! --- MAIN PROGRAM ---
+   ! --- MAIN PROGRAM ---
     PROC main()
         VAR robtarget current_pick;
         VAR robtarget current_dest;
@@ -55,7 +57,7 @@ MODULE MainModule
 
         InitProgram; 
 
-        ! @IVAN: Start Cycle Interaction
+        ! Operator Handshake (FlexPendant based)
         TPWrite "Place workpieces on the Pickup Grid (S1).";
         TPReadFK answer, "Confirm workpieces are ready?", "READY", "", "", "", "";
         
@@ -63,22 +65,19 @@ MODULE MainModule
             operatorReady := TRUE;
             TPWrite "Cycle starting...";
         ELSE
-            TPWrite "Operation aborted by user.";
+            TPWrite "Operation aborted.";
             RETURN;
         ENDIF
-
-        ! TODO: Implement PLC Handshake (SetDO Robot_Busy, 1)
 
         TPWrite "Moving to safe Home position...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
         
-        ! @SIMONA: Snake Loop with Second Platform Logic
-        TPWrite "Processing 4x4 Grid Transfer...";
+        ! Snake Loop Transfer Logic
+        TPWrite "Processing 4x4 Laser-Guided Transfer...";
         FOR row FROM 0 TO GRID_ROWS - 1 DO
             FOR col FROM 0 TO GRID_COLS - 1 DO
                 y_offs := row * OFFSET_Y;
                 
-                ! Snake logic: Reverse direction for odd rows
                 IF row MOD 2 = 0 THEN
                     x_offs := col * OFFSET_X;
                 ELSE
@@ -95,8 +94,6 @@ MODULE MainModule
         
         TPWrite "Batch complete. Returning Home...";
         MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-        
-        ! TODO: Implement PLC Handshake (SetDO Robot_Done, 1)
         
         ShowResults; 
     ENDPROC
@@ -119,54 +116,37 @@ MODULE MainModule
         Error_InvalidColour := FALSE;
         System_ResetRequired := FALSE;
     ENDPROC
+
     PROC ProcessTransfer(robtarget pick_pos, robtarget dest_pos)
         VAR robtarget approach_pick;
         VAR robtarget approach_dest;
         VAR robtarget actual_grip_pos;
         VAR robtarget actual_approach_pos;
-        VAR num measured_dist;
+        VAR num measured_val;
         VAR num block_height;
         
-        ! The laser approach point
         approach_pick := Offs(pick_pos, 0, 0, 50); 
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
-        ! 1. LASER SENSOR PHASE
-        ! Move above the piece so the laser points directly at it
+        ! 1. LASER MEASUREMENT PHASE
         MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
-        
-        ! Wait a tiny moment for the analog signal to stabilize
         WaitTime 0.2; 
         
-        ! Read the live data from the Sick sensor
-        measured_dist := AI_SensorSick;
+        measured_val := AI_SensorSick;
         
-        ! Check if the spot is empty
-        IF measured_dist <= EMPTY_DISTANCE + EMPTY_TOLERANCE THEN
+        ! Presence Detection
+        IF measured_val <= EMPTY_THRESHOLD THEN
             count_empty := count_empty + 1;
             Error_NoPart := TRUE;
-            TPWrite "Laser detected empty spot (Val: " \Num:=measured_dist;
-            TPWrite "). Moving to next...";
+            TPWrite "S1 Position Empty. Skipping...";
             RETURN;
         ENDIF
-        
-        ! DYNAMIC PICKUP PHASE
-        ! Convert the laser value into the real height of the block
-        block_height := measured_dist - EMPTY_DISTANCE;
 
-        ! Calculate the real gripping position
-        ! LASER_OFFSET_X/Y aligns the gripper with the block
-        ! GRIP_DEPTH lowers the gripper slightly below the top of the block
-        actual_grip_pos := Offs(
-            pick_pos,
-            LASER_OFFSET_X,
-            LASER_OFFSET_Y,
-            block_height + GRIP_DEPTH
-        );
-
+        ! 2. DYNAMIC PICKUP PHASE
+        block_height := measured_val - EMPTY_THRESHOLD;
+        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, block_height + GRIP_DEPTH);
         actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
         
-        ! Shift horizontally to align the gripper, then descend dynamically
         SingArea\Wrist;
         ConfL\Off;
 
@@ -178,82 +158,65 @@ MODULE MainModule
         SetDO DO_Gripper, 1;
         WaitTime 1;
         
-        ! --- ERROR 2: Gripper fault check ---
+        ! Error Handling: Grip Fail check
         IF DI_GripperClose = 0 THEN
             Error_GripperFault := TRUE;
             System_ResetRequired := TRUE;
-            TPWrite "ERROR 2: Laser saw block, but gripper missed!";
+            TPWrite "ERROR 2: Laser saw block, but grip failed!";
             SetDO DO_Gripper, 0;
             MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-            TPWrite "Check gripper and block position. Reset required.";
             STOP;
         ENDIF
 
-        ! Block successfully gripped
         blockPicked := TRUE;
-        Error_NoPart := FALSE;
         count_total := count_total + 1;
         
-        ! MEASUREMENT PHASE
-        ConfL\Off;
+        ! 3. MEASUREMENT PHASE
         MoveL actual_approach_pos, v100, z10, t_grijper1\WObj:=wobj0;
-        ConfL\On;
-
         MeasureColor;
-
-        ! PLACEMENT PHASE
+    
+        ! 4. PLACEMENT PHASE
         MoveJ approach_dest, v200, z10, t_grijper1\WObj:=wobj0;
         MoveL dest_pos, v50, fine, t_grijper1\WObj:=wobj0;
-
+    
         SetDO DO_Gripper, 0;
         WaitTime 0.5;
         blockPicked := FALSE;
-
+    
         MoveL approach_dest, v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
+    
     PROC MeasureColor()
-        ! Move to sensor
         SingArea\Wrist;
         ConfL\Off;
-
         MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
         MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
-
         ConfL\On;
-        ! Wait for sensor to stabilize
         WaitTime 0.5;
 
+        ! Color Sensor Evaluation
         IF DI_Color_1 = 0 AND DI_Color_2 = 0 AND DI_Color_3 = 0 AND DI_Color_4 = 0 THEN
             Error_SensorFailure := TRUE;
             System_ResetRequired := TRUE;
-            measurementValid := FALSE;
-            TPWrite "ERROR 3: Colour sensor no response. Stopping cycle.";
-            MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
+            TPWrite "ERROR 3: Sensor failure. Stopping.";
             MoveJ pHome, v200, fine, t_grijper1\WObj:=wobj0;
-            TPWrite "Check sensor alignment and cable. Reset required.";
             STOP;
         ENDIF
 
-        IF DI_Color_4 = 1 THEN
+        IF DI_Color_4 = 1 OR DI_Color_3 = 1 THEN
             count_correct := count_correct + 1;
             measurementValid := TRUE;
-            TPWrite "Color: BLUE -> Approved";
-        ELSEIF DI_Color_3 = 1 THEN
-            count_correct := count_correct + 1;
-            measurementValid := TRUE;
-            TPWrite "Color: GREEN -> Approved";
+            TPWrite "Color: APPROVED";
         ELSEIF DI_Color_2 = 1 THEN
             count_wrong := count_wrong + 1;
             measurementValid := TRUE;
-            TPWrite "Color: YELLOW -> Rejected";
+            TPWrite "Color: REJECTED (Yellow)";
         ELSEIF DI_Color_1 = 1 THEN
-            Error_InvalidColour := TRUE;
             count_unknown := count_unknown + 1;
             measurementValid := FALSE;
-            TPWrite "ERROR 4: RED detected -> Invalid colour. Logged.";
+            TPWrite "ERROR 4: INVALID (Red)";
         ENDIF
 
-        ! Leave sensor safely
         MoveL Offs(pSensor_Measure, 0, 0, 50), v100, z10, t_grijper1\WObj:=wobj0;
     ENDPROC
 
