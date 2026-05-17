@@ -18,7 +18,8 @@ MODULE MainModule
     CONST num LASER_OFFSET_Y := 0;  
     
     ! Calibration values for the Sick distance sensor
-    CONST num EMPTY_THRESHOLD := -50; ! If value is <= this, the spot is empty
+    ! TABLE = -50 (Far), TALLEST = -47 (Closer), SMALLEST = -19 (Closest)
+    CONST num EMPTY_THRESHOLD := -50; 
     CONST num GRIP_DEPTH := -5;       ! Additional mm to descend for a secure grip
 
     ! --- GRID CONSTANTS (45mm verified offsets) ---
@@ -143,7 +144,16 @@ MODULE MainModule
         ENDIF
 
         ! 2. DYNAMIC PICKUP PHASE
-        block_height := measured_val - EMPTY_THRESHOLD;
+        ! MATH FIX: 
+        ! Nothing (Table) = -50
+        ! Tallest = -47 (Distance = 3 units from table)
+        ! Smallest = -19 (Distance = 31 units from table)
+        ! Logic: Height is (Empty - Measured).
+        block_height := EMPTY_THRESHOLD - measured_val;
+        
+        ! Resulting Math:
+        ! Tallest: -50 - (-47) = -3mm (Robot descends 3mm from Ref point)
+        ! Smallest: -50 - (-19) = -31mm (Robot descends 31mm from Ref point)
         actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, block_height + GRIP_DEPTH);
         actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
         
