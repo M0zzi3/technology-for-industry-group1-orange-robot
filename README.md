@@ -37,3 +37,38 @@ This project controls an **ABB IRB120 6-axis robot** to automatically process wo
 2. Edit `g1-code.mod` in VS Code.
 3. Load module into RobotStudio (`T_ROB1`).
 4. Set Program Pointer (PP) to `main` and run simulation.
+
+## Development & Branching History
+
+This project followed a **Feature Branch Workflow** to ensure code stability and collaborative development. You can view the live interactive commit graph on GitHub:
+
+👉 **[View Interactive GitHub Network Graph](https://github.com/M0zzi3/technology-for-industry-group1-orange-robot/network)**
+
+### Branching Strategy
+
+```mermaid
+gitGraph
+    commit id: "Initial commit"
+    branch feat/code-skeleton
+    checkout feat/code-skeleton
+    commit id: "Skeleton & README"
+    checkout main
+    merge feat/code-skeleton
+    branch feature/offsets
+    checkout feature/offsets
+    commit id: "Grid offsets"
+    checkout main
+    merge feature/offsets
+    branch feat/laser-measure
+    checkout feat/laser-measure
+    commit id: "Laser math beta"
+    commit id: "Finalize laser picking"
+    checkout main
+    merge feat/laser-measure
+    branch refactor/documentation
+    checkout refactor/documentation
+    commit id: "Refactor RAPID comments"
+    checkout main
+    merge refactor/documentation
+```
+
