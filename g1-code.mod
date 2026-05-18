@@ -3,7 +3,7 @@ MODULE MainModule
     
     ! S1: Pickup Grid Reference. 
     ! This point is calibrated so the LASER beam points at the center of the first cell.
-    CONST robtarget git  := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference.
     ! Base point for the second platform where workpieces are delivered.
@@ -24,12 +24,12 @@ MODULE MainModule
     CONST num LASER_OFFSET_Y := 0;  
     
     ! Calibration values for the Sick analog distance sensor.
-    CONST num EMPTY_THRESHOLD := -50; 
+    CONST num EMPTY_THRESHOLD := 24; 
     CONST num GRIP_DEPTH := -5; ! Extra descent for secure pneumatic contact.
 
     ! 4x4 Grid layout constants (standardized to 45mm spacing).
-    CONST num GRID_ROWS := 4;
-    CONST num GRID_COLS := 4;
+    CONST num GRID_ROWS := 5;
+    CONST num GRID_COLS := 3;
     CONST num OFFSET_X := 45; 
     CONST num OFFSET_Y := 45; 
 
@@ -153,14 +153,15 @@ MODULE MainModule
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
         ! --- SUB-STEP A: LASER SENSING ---
-        ! Position the laser beam directly over the workpiece at the calibrated reference height
+        ! Position the laser beam directly over the workpiece at the calibrated height
         MoveJ pick_pos, v200, fine, t_grijper1\WObj:=wobj0;
         WaitTime 0.2; ! Stabilize analog sensor signal
         
         measured_val := AI_SensorSick;
         
-        ! Detection: If distance is at the table floor (-50), the slot is empty.
-        IF measured_val <= EMPTY_THRESHOLD THEN
+        ! Detection: If distance is at or near the table baseline (24), the slot is empty.
+        ! We use a +/- 2 unit tolerance.
+        IF measured_val >= (EMPTY_THRESHOLD - 2) AND measured_val <= (EMPTY_THRESHOLD + 2) THEN
             count_empty := count_empty + 1;
             Error_NoPart := TRUE;
             TPWrite "SENSING: S1 Position Empty. Skipping...";
@@ -168,13 +169,13 @@ MODULE MainModule
         ENDIF
 
         ! --- SUB-STEP B: DYNAMIC PICKUP ---
-        ! Calculate workpiece height: Tall pieces are closer to the sensor (-47)
-        ! than short pieces (-19). Math is EMPTY_THRESHOLD - MEASURED.
+        ! Calculate workpiece height: 
+        ! Empty(24) - Measured(-43) = 67mm height.
         block_height := EMPTY_THRESHOLD - measured_val;
         
         ! Shift target from Laser Center to Gripper Center using hardware offsets.
-        ! Apply the dynamic Z-depth based on the laser reading.
-        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, block_height + GRIP_DEPTH);
+        ! Apply the dynamic Z-depth (negative move down) based on height.
+        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, -block_height + GRIP_DEPTH);
         actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
         
         ! Singularity Handling: Prevent wrist locking during the dynamic X/Y shift
