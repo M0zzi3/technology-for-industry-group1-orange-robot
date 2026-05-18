@@ -3,7 +3,7 @@ MODULE MainModule
     
     ! S1: Pickup Grid Reference. 
     ! This point is calibrated so the LASER beam points at the center of the first cell.
-    CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget git  := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference.
     ! Base point for the second platform where workpieces are delivered.
@@ -153,8 +153,8 @@ MODULE MainModule
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
         ! --- SUB-STEP A: LASER SENSING ---
-        ! Position the laser beam directly over the workpiece
-        MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
+        ! Position the laser beam directly over the workpiece at the calibrated reference height
+        MoveJ pick_pos, v200, fine, t_grijper1\WObj:=wobj0;
         WaitTime 0.2; ! Stabilize analog sensor signal
         
         measured_val := AI_SensorSick;
