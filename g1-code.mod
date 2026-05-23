@@ -3,7 +3,7 @@ MODULE MainModule
     
     ! S1: Pickup Grid Reference. 
     ! This point is calibrated so the LASER beam points at the center of the first cell.
-    CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Pick_Ref := [[369.55,-109.66,109.91],[2.62996E-05,7.84211E-05,-1,-9.95705E-06],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference.
     ! Base point for the second platform where workpieces are delivered.
@@ -20,18 +20,18 @@ MODULE MainModule
     ! --- SYSTEM CONSTANTS & CALIBRATION ---
     
     ! Physical offset (mm) between the laser beam and the center of the pneumatic gripper.
-    CONST num LASER_OFFSET_X := 25; 
-    CONST num LASER_OFFSET_Y := 0;  
+    CONST num LASER_OFFSET_X := 0; 
+    CONST num LASER_OFFSET_Y := 27;  
     
     ! Calibration values for the Sick analog distance sensor.
     CONST num EMPTY_THRESHOLD := 24; 
-    CONST num GRIP_DEPTH := -5; ! Extra descent for secure pneumatic contact.
+    CONST num GRIP_DEPTH := 5; ! Extra descent for secure pneumatic contact.
 
     ! 4x4 Grid layout constants (standardized to 45mm spacing).
-    CONST num GRID_ROWS := 5;
-    CONST num GRID_COLS := 3;
-    CONST num OFFSET_X := 45; 
-    CONST num OFFSET_Y := 45; 
+    CONST num GRID_ROWS := 3;
+    CONST num GRID_COLS := 5;
+    CONST num OFFSET_X := 39; 
+    CONST num OFFSET_Y := 39; 
 
     ! --- GLOBAL BATCH STATISTICS ---
     VAR num count_total := 0;    ! Total blocks moved
@@ -171,11 +171,11 @@ MODULE MainModule
         ! --- SUB-STEP B: DYNAMIC PICKUP ---
         ! Calculate workpiece height: 
         ! Empty(24) - Measured(-43) = 67mm height.
-        block_height := EMPTY_THRESHOLD - measured_val;
+        block_height := EMPTY_THRESHOLD + measured_val;
         
         ! Shift target from Laser Center to Gripper Center using hardware offsets.
         ! Apply the dynamic Z-depth (negative move down) based on height.
-        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, -block_height + GRIP_DEPTH);
+        actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, block_height + GRIP_DEPTH);
         actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
         
         ! Singularity Handling: Prevent wrist locking during the dynamic X/Y shift
@@ -187,7 +187,7 @@ MODULE MainModule
 
         ConfL\On; ! Restore standard movement configuration
 
-        SetDO DO_Gripper, 1; ! Activate pneumatic suction
+        SetDO DO_Gripper, 1;
         WaitTime 1; ! Physical settling time
         
         ! Verification: Ensure the block was actually picked via pneumatic feedback
