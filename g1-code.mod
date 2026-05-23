@@ -169,8 +169,6 @@ MODULE MainModule
         ENDIF
 
         ! --- SUB-STEP B: DYNAMIC PICKUP ---
-        ! Calculate workpiece height: 
-        ! Empty(24) - Measured(-43) = 67mm height.
         block_height := EMPTY_THRESHOLD + measured_val;
         
         ! Shift target from Laser Center to Gripper Center using hardware offsets.
@@ -228,7 +226,7 @@ MODULE MainModule
         MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
         MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
         ConfL\On;
-        WaitTime 0.5; ! Let color sensor stabilize
+        WaitTime 0.5;
 
         ! Safety check: If no light/color is detected at all, sensor may be unplugged.
         IF DI_Color_1 = 0 AND DI_Color_2 = 0 AND DI_Color_3 = 0 AND DI_Color_4 = 0 THEN
