@@ -3,7 +3,7 @@ MODULE MainModule
     
     ! S1: Pickup Grid Reference. 
     ! This point is calibrated so the LASER beam points at the center of the first cell.
-    CONST robtarget pGrid_Pick_Ref := [[366.55, -83.67,109.91],[4.42542E-06,6.16962E-05, -1, 1.16894E-05], [-1,-1, -1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pGrid_Pick_Ref := [[369.55,-109.66,109.91],[2.62996E-05,7.84211E-05,-1,-9.95705E-06],[-1,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     ! S4: Destination Grid Reference.
     ! Base point for the second platform where workpieces are delivered.
@@ -20,18 +20,18 @@ MODULE MainModule
     ! --- SYSTEM CONSTANTS & CALIBRATION ---
     
     ! Physical offset (mm) between the laser beam and the center of the pneumatic gripper.
-    CONST num LASER_OFFSET_X := 25; 
-    CONST num LASER_OFFSET_Y := 0;  
+    CONST num LASER_OFFSET_X := 0; 
+    CONST num LASER_OFFSET_Y := 27;  
     
     ! Calibration values for the Sick analog distance sensor.
-    CONST num EMPTY_THRESHOLD := -50; 
-    CONST num GRIP_DEPTH := -5; ! Extra descent for secure pneumatic contact.
+    CONST num EMPTY_THRESHOLD := 24; 
+    CONST num GRIP_DEPTH := 5; ! Extra descent for secure pneumatic contact.
 
     ! 4x4 Grid layout constants (standardized to 45mm spacing).
-    CONST num GRID_ROWS := 4;
-    CONST num GRID_COLS := 4;
-    CONST num OFFSET_X := 45; 
-    CONST num OFFSET_Y := 45; 
+    CONST num GRID_ROWS := 3;
+    CONST num GRID_COLS := 5;
+    CONST num OFFSET_X := 39; 
+    CONST num OFFSET_Y := 39; 
 
     ! --- GLOBAL BATCH STATISTICS ---
     VAR num count_total := 0;    ! Total blocks moved
@@ -153,14 +153,15 @@ MODULE MainModule
         approach_dest := Offs(dest_pos, 0, 0, 50);
         
         ! --- SUB-STEP A: LASER SENSING ---
-        ! Position the laser beam directly over the workpiece
-        MoveJ approach_pick, v200, z10, t_grijper1\WObj:=wobj0;
+        ! Position the laser beam directly over the workpiece at the calibrated height
+        MoveJ pick_pos, v200, fine, t_grijper1\WObj:=wobj0;
         WaitTime 0.2; ! Stabilize analog sensor signal
         
         measured_val := AI_SensorSick;
         
-        ! Detection: If distance is at the table floor (-50), the slot is empty.
-        IF measured_val <= EMPTY_THRESHOLD THEN
+        ! Detection: If distance is at or near the table baseline (24), the slot is empty.
+        ! We use a +/- 2 unit tolerance.
+        IF measured_val >= (EMPTY_THRESHOLD - 2) AND measured_val <= (EMPTY_THRESHOLD + 2) THEN
             count_empty := count_empty + 1;
             Error_NoPart := TRUE;
             TPWrite "SENSING: S1 Position Empty. Skipping...";
@@ -168,12 +169,10 @@ MODULE MainModule
         ENDIF
 
         ! --- SUB-STEP B: DYNAMIC PICKUP ---
-        ! Calculate workpiece height: Tall pieces are closer to the sensor (-47)
-        ! than short pieces (-19). Math is EMPTY_THRESHOLD - MEASURED.
-        block_height := EMPTY_THRESHOLD - measured_val;
+        block_height := EMPTY_THRESHOLD + measured_val;
         
         ! Shift target from Laser Center to Gripper Center using hardware offsets.
-        ! Apply the dynamic Z-depth based on the laser reading.
+        ! Apply the dynamic Z-depth (negative move down) based on height.
         actual_grip_pos := Offs(pick_pos, LASER_OFFSET_X, LASER_OFFSET_Y, block_height + GRIP_DEPTH);
         actual_approach_pos := Offs(actual_grip_pos, 0, 0, 50);
         
@@ -186,7 +185,7 @@ MODULE MainModule
 
         ConfL\On; ! Restore standard movement configuration
 
-        SetDO DO_Gripper, 1; ! Activate pneumatic suction
+        SetDO DO_Gripper, 1;
         WaitTime 1; ! Physical settling time
         
         ! Verification: Ensure the block was actually picked via pneumatic feedback
@@ -227,7 +226,7 @@ MODULE MainModule
         MoveJ Offs(pSensor_Measure, 0, 0, 50), v200, z10, t_grijper1\WObj:=wobj0;
         MoveL pSensor_Measure, v50, fine, t_grijper1\WObj:=wobj0;
         ConfL\On;
-        WaitTime 0.5; ! Let color sensor stabilize
+        WaitTime 0.5;
 
         ! Safety check: If no light/color is detected at all, sensor may be unplugged.
         IF DI_Color_1 = 0 AND DI_Color_2 = 0 AND DI_Color_3 = 0 AND DI_Color_4 = 0 THEN
